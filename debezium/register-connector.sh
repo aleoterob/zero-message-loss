@@ -14,6 +14,7 @@ curl -X POST http://localhost:8083/connectors -H "Content-Type: application/json
     "database.user": "neondb_owner",
     "database.password": "npg_9tASuviGJ2EI",
     "database.dbname": "neondb",
+    "binary.handling.mode": "base64",
     "plugin.name": "pgoutput",
     "slot.name": "debezium_slot",
     "publication.name": "transfer_publication",
@@ -24,8 +25,9 @@ curl -X POST http://localhost:8083/connectors -H "Content-Type: application/json
     "transforms.outbox.table.field.event.key": "aggregate_id",
     "transforms.outbox.table.field.event.type": "event_type",
     "transforms.outbox.table.field.event.payload": "payload",
+    "transforms.outbox.route.by.field": "aggregate_type",
     "transforms.outbox.route.topic.replacement": "transfers.created",
-    "value.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+    "value.converter": "org.apache.kafka.connect.storage.StringConverter",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter"
   }
 }'
