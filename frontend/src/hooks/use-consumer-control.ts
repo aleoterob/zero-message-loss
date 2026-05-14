@@ -28,7 +28,33 @@ export function useConsumerControl() {
   }
 
   useEffect(() => {
-    void request("/status", "", "GET")
+    const abortController = new AbortController()
+
+    async function loadStatus() {
+      try {
+        const response = await fetch(`${env.consumerControlUrl}/status`, {
+          method: "GET",
+          signal: abortController.signal,
+        })
+        if (!response.ok) {
+          throw new Error(`Consumer control returned ${response.status}`)
+        }
+
+        const nextStatus = (await response.json()) as ConsumerStatus
+        setStatus(nextStatus)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return
+        }
+
+        setActionState("error")
+        setStatusMessage(error instanceof Error ? error.message : "Consumer control request failed.")
+      }
+    }
+
+    void loadStatus()
+
+    return () => abortController.abort()
   }, [])
 
   return {
