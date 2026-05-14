@@ -1,13 +1,14 @@
 package com.aleoterob.transfer_producer;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+import org.junit.jupiter.api.Test;
+
 class TransferProducerApplicationTests {
 
 	@Test
-	void contextLoads() {
+	void applicationCanBeCreated() {
+		assertThat(new TransferProducerApplication()).isNotNull();
 	}
 
 }
