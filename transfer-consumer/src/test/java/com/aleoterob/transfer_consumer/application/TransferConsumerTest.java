@@ -7,6 +7,7 @@ import com.aleoterob.transfer_consumer.domain.ProcessedEvent;
 import com.aleoterob.transfer_consumer.infrastructure.ProcessedEventRepository;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -17,7 +18,8 @@ class TransferConsumerTest {
 	@Test
 	void storesEventIdWhenProcessingNewTransferEvent() throws Exception {
 		InMemoryProcessedEventRepository repository = new InMemoryProcessedEventRepository();
-		TransferConsumer consumer = new TransferConsumer(repository);
+		ConsumerControlService controlService = new ConsumerControlService(null);
+		TransferConsumer consumer = new TransferConsumer(repository, controlService);
 		UUID eventId = UUID.randomUUID();
 		UUID transferId = UUID.randomUUID();
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
@@ -39,7 +41,8 @@ class TransferConsumerTest {
 		UUID eventId = UUID.randomUUID();
 		UUID transferId = UUID.randomUUID();
 		repository.save(ProcessedEvent.create(eventId, transferId));
-		TransferConsumer consumer = new TransferConsumer(repository);
+		ConsumerControlService controlService = new ConsumerControlService(null);
+		TransferConsumer consumer = new TransferConsumer(repository, controlService);
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
 
 		consumer.consume(transferEvent(eventId, transferId).toByteArray(), acknowledgment);
@@ -49,13 +52,45 @@ class TransferConsumerTest {
 	}
 
 	@Test
+	void decodesBase64PayloadProducedByDebeziumOutboxRouter() throws Exception {
+		InMemoryProcessedEventRepository repository = new InMemoryProcessedEventRepository();
+		ConsumerControlService controlService = new ConsumerControlService(null);
+		TransferConsumer consumer = new TransferConsumer(repository, controlService);
+		UUID eventId = UUID.randomUUID();
+		UUID transferId = UUID.randomUUID();
+		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
+		byte[] encodedPayload = Base64.getEncoder()
+				.encode(transferEvent(eventId, transferId).toByteArray());
+
+		consumer.consume(encodedPayload, acknowledgment);
+
+		assertThat(repository.saved).singleElement()
+				.satisfies(processedEvent -> assertThat(processedEvent.getEventId()).isEqualTo(eventId));
+		assertThat(acknowledgment.acknowledged).isTrue();
+	}
+
+	@Test
 	void throwsWhenPayloadCannotBeDeserializedSoKafkaCanRetryAndDlt() {
-		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedEventRepository());
+		ConsumerControlService controlService = new ConsumerControlService(null);
+		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedEventRepository(), controlService);
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
 
 		org.junit.jupiter.api.Assertions.assertThrows(
 				InvalidProtocolBufferException.class,
 				() -> consumer.consume(new byte[] {1, 2, 3}, acknowledgment));
+		assertThat(acknowledgment.acknowledged).isFalse();
+	}
+
+	@Test
+	void throwsWhenFailureModeIsEnabledSoKafkaCanRetryAndDlt() {
+		ConsumerControlService controlService = new ConsumerControlService(null);
+		controlService.enableFailProcessing();
+		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedEventRepository(), controlService);
+		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
+
+		org.junit.jupiter.api.Assertions.assertThrows(
+				IllegalStateException.class,
+				() -> consumer.consume(transferEvent(UUID.randomUUID(), UUID.randomUUID()).toByteArray(), acknowledgment));
 		assertThat(acknowledgment.acknowledged).isFalse();
 	}
 

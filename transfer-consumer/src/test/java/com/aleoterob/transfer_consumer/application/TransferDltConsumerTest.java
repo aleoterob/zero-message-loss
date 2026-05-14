@@ -1,6 +1,7 @@
 package com.aleoterob.transfer_consumer.application;
 
 import com.aleoterob.transfer.proto.TransferEvent;
+import java.util.Base64;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,23 @@ class TransferDltConsumerTest {
 				.build();
 
 		consumer.handleDlt(event.toByteArray());
+	}
+
+	@Test
+	void acceptsBase64DltPayload() {
+		TransferDltConsumer consumer = new TransferDltConsumer();
+		TransferEvent event = TransferEvent.newBuilder()
+				.setEventId(UUID.randomUUID().toString())
+				.setTransferId(UUID.randomUUID().toString())
+				.setFromAccount("ACC001")
+				.setToAccount("ACC002")
+				.setAmount("1500.00")
+				.setCurrency("ARS")
+				.setStatus("PENDING")
+				.setCreatedAt(123456789L)
+				.build();
+
+		consumer.handleDlt(Base64.getEncoder().encode(event.toByteArray()));
 	}
 
 	@Test

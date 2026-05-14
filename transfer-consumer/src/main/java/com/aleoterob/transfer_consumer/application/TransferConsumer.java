@@ -17,15 +17,22 @@ public class TransferConsumer {
 	private static final Logger log = LoggerFactory.getLogger(TransferConsumer.class);
 
 	private final ProcessedEventRepository processedEventRepository;
+	private final ConsumerControlService consumerControlService;
 
-	public TransferConsumer(ProcessedEventRepository processedEventRepository) {
+	public TransferConsumer(ProcessedEventRepository processedEventRepository,
+			ConsumerControlService consumerControlService) {
 		this.processedEventRepository = processedEventRepository;
+		this.consumerControlService = consumerControlService;
 	}
 
-	@KafkaListener(topics = "transfers.created", groupId = "transfer-consumer-group")
+	@KafkaListener(id = ConsumerControlService.TRANSFER_LISTENER_ID, topics = "transfers.created", groupId = "transfer-consumer-group")
 	@Transactional
 	public void consume(byte[] message, Acknowledgment acknowledgment) throws InvalidProtocolBufferException {
-		TransferEvent event = TransferEvent.parseFrom(message);
+		if (consumerControlService.isFailProcessing()) {
+			throw new IllegalStateException("Transfer consumer failure mode is enabled");
+		}
+
+		TransferEvent event = TransferEventPayload.parse(message);
 		UUID eventId = UUID.fromString(event.getEventId());
 
 		if (processedEventRepository.existsById(eventId)) {

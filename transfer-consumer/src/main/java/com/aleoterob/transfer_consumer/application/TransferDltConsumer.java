@@ -14,7 +14,7 @@ public class TransferDltConsumer {
 	public void handleDlt(byte[] message) {
 		log.error("Message landed in DLT. Raw bytes length: {}", message.length);
 		try {
-			TransferEvent event = TransferEvent.parseFrom(message);
+			TransferEvent event = TransferEventPayload.parse(message);
 			log.error("DLT event - transferId: {}, from: {}, to: {}, amount: {}",
 					event.getTransferId(),
 					event.getFromAccount(),
