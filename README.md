@@ -214,58 +214,29 @@ For `frontend`, install `protobufjs` or use plain JSON deserialization (kafka-ui
 
 **Goal:** expose `POST /transfers`, save the transfer and an outbox event atomically, and let Debezium publish the event to Kafka.
 
-#### 2.1 Add Flyway dependency to `pom.xml`
+#### 2.1 Configure JPA schema creation
 
-```xml
-<dependency>
-  <groupId>org.flywaydb</groupId>
-  <artifactId>flyway-core</artifactId>
-</dependency>
-<dependency>
-  <groupId>org.flywaydb</groupId>
-  <artifactId>flyway-database-postgresql</artifactId>
-</dependency>
-```
+The project intentionally lets Hibernate create/update the development schema when the service starts.
 
-Add to `application.yaml`:
+Keep this in `application.yaml`:
 
 ```yaml
 spring:
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
+  jpa:
+    hibernate:
+      ddl-auto: update
 ```
 
-#### 2.2 Create Flyway migrations
+#### 2.2 Tables generated from JPA entities
 
-File: `src/main/resources/db/migration/V1__create_transfers.sql`
+Create `Transfer` and `OutboxEvent` as JPA entities. On startup, Hibernate should create/update:
 
-```sql
-CREATE TABLE IF NOT EXISTS transfers (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  from_account VARCHAR(64) NOT NULL,
-  to_account   VARCHAR(64) NOT NULL,
-  amount       NUMERIC(19,4) NOT NULL,
-  currency     VARCHAR(8) NOT NULL DEFAULT 'ARS',
-  status       VARCHAR(32) NOT NULL DEFAULT 'PENDING',
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
+- `transfers`
+- `outbox_events`
 
-File: `src/main/resources/db/migration/V2__create_outbox_events.sql`
+Use explicit `@Table` and `@Column` mappings so the generated schema matches Debezium expectations.
 
-```sql
-CREATE TABLE IF NOT EXISTS outbox_events (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  aggregate_id   UUID NOT NULL,        -- maps to transfer.id
-  aggregate_type VARCHAR(64) NOT NULL, -- always "Transfer"
-  event_type     VARCHAR(64) NOT NULL, -- always "TransferCreated"
-  payload        BYTEA NOT NULL,       -- Protobuf-serialized TransferEvent
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
-
-**Important:** After running migrations, enable the Neon publication manually in the Neon SQL Editor:
+**Important:** after the app starts and Hibernate creates `outbox_events`, enable the Neon publication manually in the Neon SQL Editor:
 
 ```sql
 CREATE PUBLICATION transfer_publication FOR TABLE outbox_events;
@@ -352,19 +323,22 @@ public class TransferService {
 
 **Goal:** consume `transfers.created` from Kafka, deserialize Protobuf, check idempotency, process, and handle DLT.
 
-#### 3.1 Add Flyway dependency (same as producer)
+#### 3.1 Configure JPA schema creation
 
-#### 3.2 Create Flyway migration
+Keep this in `application.yaml`:
 
-File: `src/main/resources/db/migration/V1__create_processed_events.sql`
-
-```sql
-CREATE TABLE IF NOT EXISTS processed_events (
-  event_id    UUID PRIMARY KEY,         -- TransferEvent.event_id
-  transfer_id UUID NOT NULL,
-  processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+```yaml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
 ```
+
+#### 3.2 Table generated from JPA entity
+
+Create `ProcessedEvent` as a JPA entity. On startup, Hibernate should create/update:
+
+- `processed_events`
 
 #### 3.3 Package structure
 
