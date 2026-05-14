@@ -156,9 +156,9 @@ npm run dev
 - Monorepo initialized with Git and global `.gitignore`
 - `docker-compose.yml` configured — Kafka, Zookeeper, Debezium, Kafka UI
 - `debezium/register-connector.sh` — registers Neon WAL connector pointing to `transfer-producer-db` direct connection
-- `transfer-producer` — Spring Boot project created with dependencies (Web, JPA, Kafka, Validation, PostgreSQL). `application.yaml` and `application-local.yaml` configured. Connects to `transfer-producer-db` on Neon. Runs on port 8081. Only entry point class exists, no business logic yet.
-- `transfer-consumer` — Spring Boot project created with dependencies (JPA, Kafka, Validation, PostgreSQL). `application.yaml` and `application-local.yaml` configured. Connects to `transfer-consumer-db` on Neon. Runs on port 8082. Only entry point class exists, no business logic yet.
-- `kafka-ui-service` — Quarkus project created with `quarkus-rest` and `quarkus-arc`. Only the generated `GreetingResource.java` exists. No Kafka or SSE dependencies yet.
+- `transfer-producer` — Spring Boot service on port 8081. Exposes `POST /transfers`, persists transfers and Protobuf outbox events transactionally, and lets Hibernate create/update `transfers` and `outbox_events`.
+- `transfer-consumer` — Spring Boot service on port 8082. Consumes `transfers.created`, deserializes Protobuf, stores `processed_events` for idempotency, and handles `transfers.created.DLT`.
+- `kafka-ui-service` — Quarkus service on port 8085. Consumes `transfers.created` and `transfers.created.DLT`, maps Protobuf payloads to JSON DTOs, and exposes SSE endpoints at `/events/stream` and `/events/dlt`.
 - `frontend` — React 19 + Vite 8 + TypeScript scaffolded. Default Vite template, no custom code yet.
 
 ---
@@ -463,7 +463,7 @@ Remove `quarkus-rest` if present (replaced by `quarkus-rest-jackson`).
 
 ```properties
 quarkus.http.port=8085
-quarkus.http.cors=true
+quarkus.http.cors.enabled=true
 quarkus.http.cors.origins=http://localhost:5173
 
 mp.messaging.incoming.transfers-created.connector=smallrye-kafka
