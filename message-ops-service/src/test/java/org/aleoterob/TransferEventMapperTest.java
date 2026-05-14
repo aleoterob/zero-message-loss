@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.aleoterob.transfer.proto.TransferEvent;
+import java.util.Base64;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +35,17 @@ class TransferEventMapperTest {
         TransferEventDto dto = TransferEventMapper.toDto(event.toByteArray(), true);
 
         assertTrue(dto.isDlt());
+    }
+
+    @Test
+    void mapsBase64PayloadProducedByDebeziumOutboxRouter() throws Exception {
+        TransferEvent event = transferEvent();
+        byte[] encodedPayload = Base64.getEncoder().encode(event.toByteArray());
+
+        TransferEventDto dto = TransferEventMapper.toDto(encodedPayload, false);
+
+        assertEquals(event.getEventId(), dto.eventId());
+        assertEquals(event.getTransferId(), dto.transferId());
     }
 
     private static TransferEvent transferEvent() {

@@ -8,7 +8,15 @@ public final class TransferEventMapper {
     }
 
     public static TransferEventDto toDto(byte[] payload, boolean isDlt) throws InvalidProtocolBufferException {
-        TransferEvent event = TransferEvent.parseFrom(payload);
+        return toDto(payload, isDlt, isDlt ? "DLT_PENDING" : "LIVE", 0);
+    }
+
+    public static TransferEventDto toDto(
+            byte[] payload,
+            boolean isDlt,
+            String deliveryState,
+            int replayAttempts) throws InvalidProtocolBufferException {
+        TransferEvent event = TransferEventPayload.parse(payload);
         return new TransferEventDto(
                 event.getEventId(),
                 event.getTransferId(),
@@ -18,6 +26,8 @@ public final class TransferEventMapper {
                 event.getCurrency(),
                 event.getStatus(),
                 event.getCreatedAt(),
-                isDlt);
+                isDlt,
+                deliveryState,
+                replayAttempts);
     }
 }
