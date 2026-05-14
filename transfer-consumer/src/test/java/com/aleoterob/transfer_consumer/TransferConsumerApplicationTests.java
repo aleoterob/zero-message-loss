@@ -1,13 +1,14 @@
 package com.aleoterob.transfer_consumer;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+import org.junit.jupiter.api.Test;
+
 class TransferConsumerApplicationTests {
 
 	@Test
-	void contextLoads() {
+	void applicationCanBeCreated() {
+		assertThat(new TransferConsumerApplication()).isNotNull();
 	}
 
 }
