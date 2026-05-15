@@ -25,7 +25,7 @@ public class TransferService {
 		this.transferRepository = transferRepository;
 		this.outboxEventRepository = outboxEventRepository;
 	}
-
+	// NOTE: Starts the transactional outbox flow: persist the transfer and its event in the same database transaction.
 	public Transfer create(CreateTransferRequest request) {
 		Transfer transfer = Transfer.create(
 				request.fromAccount(),
@@ -33,8 +33,9 @@ public class TransferService {
 				request.amount(),
 				request.currency(),
 				TRANSFER_STATUS_PENDING);
+		// NOTE: Insert transfer in transfer table of transfer-producer-db
 		Transfer savedTransfer = transferRepository.save(transfer);
-
+		// NOTE: Build Protobuf event
 		TransferEvent event = TransferEvent.newBuilder()
 				.setEventId(UUID.randomUUID().toString())
 				.setTransferId(savedTransfer.getId().toString())
@@ -45,7 +46,7 @@ public class TransferService {
 				.setStatus(savedTransfer.getStatus())
 				.setCreatedAt(Instant.now().toEpochMilli())
 				.build();
-
+		// NOTE: Insert outbox event in outbox_events table of transfer-producer-db
 		outboxEventRepository.save(OutboxEvent.create(
 				savedTransfer.getId(),
 				AGGREGATE_TYPE_TRANSFER,
