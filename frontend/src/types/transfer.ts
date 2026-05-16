@@ -42,5 +42,13 @@ export interface EventPanelProps {
 export interface EventCardProps {
   event: TransferEventDto
   processedTransfer?: ProcessedTransferDto
-  tone: EventTone
+}
+
+export interface MetadataFieldProps {
+  label: string
+  value: string
+}
+
+export interface ConsumerTransferDbCardProps {
+  processedTransfer: ProcessedTransferDto
 }

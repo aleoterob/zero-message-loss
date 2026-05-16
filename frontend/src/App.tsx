@@ -11,22 +11,28 @@ function App() {
   const processedTransfers = useProcessedTransferStream(env.eventsProcessedUrl)
 
   return (
-    <main className="app-shell">
-      <section className="app-header">
+    <main className="grid min-h-screen grid-rows-[auto_auto_auto] p-5 md:p-6">
+      <section className="mx-auto mb-6 flex w-full max-w-[1180px] flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="section-label">Zero Message Loss</p>
-          <h1>Banking transfer event monitor</h1>
+          <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">Zero Message Loss</p>
+          <h1 className="m-0 text-3xl font-semibold leading-none md:text-4xl">Banking transfer event monitor</h1>
         </div>
-        <div className="status-strip" aria-label="Service ports">
-          <span>Producer 8081</span>
-          <span>Message Ops 8085</span>
-          <span>Frontend 5173</span>
+        <div className="flex flex-wrap gap-2 md:justify-end" aria-label="Service ports">
+          <span className="rounded-full border border-primary px-2.5 py-1.5 text-xs text-muted-foreground">
+            Producer 8081
+          </span>
+          <span className="rounded-full border border-primary px-2.5 py-1.5 text-xs text-muted-foreground">
+            Message Ops 8085
+          </span>
+          <span className="rounded-full border border-primary px-2.5 py-1.5 text-xs text-muted-foreground">
+            Frontend 5173
+          </span>
         </div>
       </section>
 
       <TopPanel />
 
-      <section className="event-grid">
+      <section className="mx-auto mt-4 grid w-full max-w-[1180px] grid-cols-1 gap-4 md:grid-cols-2">
         <LeftPanel events={liveEvents} />
         <RightPanel events={dltEvents} processedTransfers={processedTransfers} />
       </section>

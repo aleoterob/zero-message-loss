@@ -36,21 +36,19 @@ import {
 } from "@/components/ui/popover"
 import { useCreateTransfer } from "@/hooks/use-create-transfer"
 import { useConsumerControl } from "@/hooks/use-consumer-control"
-import type { AccountOption } from "@/types/transfer"
+import {
+  getConsumerStatusDescription,
+  getConsumerStatusLabel,
+  getConsumerStatusTone,
+} from "@/lib/consumer-control-display"
+import { dummyAccounts } from "@/lib/dummy-accounts"
+import { cn } from "@/lib/utils"
 import type {
   AccountComboboxProps,
   ConsumerControlsProps,
   SubmitNoticeProps,
   TopPanelProps,
 } from "@/types/top-panel"
-
-const dummyAccounts: AccountOption[] = [
-  { id: "ACC001", label: "ACC001 - Payroll Account" },
-  { id: "ACC002", label: "ACC002 - Savings Account" },
-  { id: "ACC003", label: "ACC003 - Vendor Payments" },
-  { id: "ACC004", label: "ACC004 - Treasury Account" },
-  { id: "ACC005", label: "ACC005 - Operations Account" },
-]
 
 export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
   const {
@@ -67,7 +65,7 @@ export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
   const consumerControl = useConsumerControl()
 
   return (
-    <Card className="transfer-card">
+    <Card className="mx-auto w-full max-w-[1180px]">
       <CardHeader>
         <CardTitle>Create Transfer</CardTitle>
         <CardDescription>
@@ -75,7 +73,10 @@ export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="transfer-form" onSubmit={createTransfer}>
+        <form
+          className="grid grid-cols-1 items-end gap-3.5 md:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_minmax(140px,0.6fr)_auto]"
+          onSubmit={createTransfer}
+        >
           <AccountCombobox
             accounts={accounts}
             id="from-account"
@@ -90,7 +91,7 @@ export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
             value={toAccount}
             onChange={setToAccount}
           />
-          <div className="field-stack">
+          <div className="flex min-w-0 flex-col gap-2">
             <Label htmlFor="amount">Amount</Label>
             <Input
               id="amount"
@@ -102,7 +103,7 @@ export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
             />
           </div>
           <Button
-            className="submit-button"
+            className="min-w-[150px] w-full md:w-auto"
             disabled={submitState === "loading" || fromAccount === toAccount || Number(amount) <= 0}
             type="submit"
           >
@@ -134,22 +135,22 @@ function AccountCombobox({ accounts, id, label, value, onChange }: AccountCombob
   const selectedAccount = accounts.find((account) => account.id === value)
 
   return (
-    <div className="field-stack">
+    <div className="flex min-w-0 flex-col gap-2">
       <Label htmlFor={id}>{label}</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             aria-expanded={open}
-            className="account-trigger"
+            className="w-full min-w-0 justify-between"
             id={id}
             type="button"
             variant="outline"
           >
-            <span>{selectedAccount?.label ?? "Select account"}</span>
+            <span className="min-w-0 truncate">{selectedAccount?.label ?? "Select account"}</span>
             <ChevronsUpDown data-icon="inline-end" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="account-popover">
+        <PopoverContent align="start" className="w-[280px] p-0">
           <Command>
             <CommandInput placeholder="Search account..." />
             <CommandList>
@@ -183,7 +184,12 @@ function SubmitNotice({ state, message }: SubmitNoticeProps) {
   }
 
   return (
-    <p className={`submit-notice ${state}`}>
+    <p
+      className={cn(
+        "mt-4 flex items-center gap-2 text-sm",
+        state === "success" ? "text-accent-foreground" : "text-destructive",
+      )}
+    >
       {state === "success" ? <CheckCircle2 data-icon="inline-start" /> : <AlertCircle data-icon="inline-start" />}
       {message}
     </p>
@@ -200,25 +206,29 @@ function ConsumerControls({
   onResume,
 }: ConsumerControlsProps) {
   const isLoading = actionState === "loading"
-  const statusTone = status?.failProcessing ? "danger" : status?.paused ? "paused" : "ready"
-  const statusLabel = status?.failProcessing
-    ? "Failure mode enabled"
-    : status?.paused
-      ? "Consumer paused"
-      : "Consumer running"
+  const statusTone = getConsumerStatusTone(status)
+  const statusLabel = getConsumerStatusLabel(status)
+  const statusDescription = getConsumerStatusDescription(status)
 
   return (
-    <div className="consumer-controls">
-      <div className={`consumer-status ${statusTone}`}>
-        <span>{statusLabel}</span>
-        <small>{status?.failProcessing ? "DLT replay waiting" : "Automatic replay ready"}</small>
+    <div className="mt-4 grid grid-cols-1 items-center gap-3.5 border-t border-border pt-4 md:grid-cols-[minmax(180px,0.8fr)_minmax(0,1.8fr)]">
+      <div
+        className={cn(
+          "flex min-w-0 flex-col gap-0.5 rounded-md border p-3",
+          statusTone === "danger" && "border-destructive bg-destructive/10",
+          statusTone === "paused" && "border-ring bg-secondary",
+          statusTone === "ready" && "border-border bg-accent",
+        )}
+      >
+        <span className="text-sm font-bold">{statusLabel}</span>
+        <small className="text-xs text-muted-foreground">{statusDescription}</small>
       </div>
-      <div className="control-actions">
-        <Button disabled={isLoading || status?.paused === true} onClick={onPause} type="button" variant="outline">
+      <div className="flex flex-wrap gap-2 md:justify-end">
+        <Button disabled={isLoading || status?.paused === true} onClick={onPause} type="button" variant="primaryOutline">
           <Pause data-icon="inline-start" />
           Pause
         </Button>
-        <Button disabled={isLoading || status?.paused === false} onClick={onResume} type="button" variant="outline">
+        <Button disabled={isLoading || status?.paused === false} onClick={onResume} type="button" variant="primaryOutline">
           <Play data-icon="inline-start" />
           Resume
         </Button>
@@ -226,7 +236,7 @@ function ConsumerControls({
           disabled={isLoading || status?.failProcessing === true}
           onClick={onFailProcessing}
           type="button"
-          variant="outline"
+          variant="primaryOutline"
         >
           <Siren data-icon="inline-start" />
           Fail mode
@@ -235,13 +245,22 @@ function ConsumerControls({
           disabled={isLoading || status?.failProcessing === false}
           onClick={onRestoreProcessing}
           type="button"
-          variant="outline"
+          variant="primaryOutline"
         >
           <RotateCcw data-icon="inline-start" />
           Restore
         </Button>
       </div>
-      {statusMessage ? <p className={`control-message ${actionState}`}>{statusMessage}</p> : null}
+      {statusMessage ? (
+        <p
+          className={cn(
+            "col-span-full m-0 text-sm text-muted-foreground",
+            actionState === "error" && "text-destructive",
+          )}
+        >
+          {statusMessage}
+        </p>
+      ) : null}
     </div>
   )
 }
