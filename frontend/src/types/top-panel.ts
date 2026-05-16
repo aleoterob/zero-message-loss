@@ -22,7 +22,6 @@ export interface SubmitNoticeProps {
 export type ConsumerActionState = "idle" | "loading" | "error"
 
 export interface ConsumerStatus {
-  paused: boolean
   failProcessing: boolean
 }
 
@@ -47,7 +46,5 @@ export interface ConsumerControlsProps {
   status: ConsumerStatus | null
   statusMessage: string
   onFailProcessing: () => void
-  onPause: () => void
   onRestoreProcessing: () => void
-  onResume: () => void
 }

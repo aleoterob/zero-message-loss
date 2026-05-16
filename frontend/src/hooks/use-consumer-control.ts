@@ -60,9 +60,7 @@ export function useConsumerControl() {
   return {
     actionState,
     failProcessing: () => request("/fail-processing", "Failure mode enabled."),
-    pause: () => request("/pause", "Consumer paused."),
-    restoreProcessing: () => request("/restore-processing", "Processing restored. Replay can resume."),
-    resume: () => request("/resume", "Consumer resumed."),
+    restoreProcessing: () => request("/restore-processing", "Processing restored. Replay is ready."),
     status,
     statusMessage,
   }

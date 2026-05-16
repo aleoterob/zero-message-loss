@@ -4,8 +4,6 @@ import {
   CheckCircle2,
   ChevronsUpDown,
   Loader2,
-  Pause,
-  Play,
   RotateCcw,
   SendHorizontal,
   Siren,
@@ -65,7 +63,7 @@ export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
   const consumerControl = useConsumerControl()
 
   return (
-    <Card className="mx-auto w-full max-w-[1180px]">
+    <Card className="mx-auto w-full max-w-[1180px] ring-primary">
       <CardHeader>
         <CardTitle>Create Transfer</CardTitle>
         <CardDescription>
@@ -121,9 +119,7 @@ export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
           status={consumerControl.status}
           statusMessage={consumerControl.statusMessage}
           onFailProcessing={consumerControl.failProcessing}
-          onPause={consumerControl.pause}
           onRestoreProcessing={consumerControl.restoreProcessing}
-          onResume={consumerControl.resume}
         />
       </CardContent>
     </Card>
@@ -201,9 +197,7 @@ function ConsumerControls({
   status,
   statusMessage,
   onFailProcessing,
-  onPause,
   onRestoreProcessing,
-  onResume,
 }: ConsumerControlsProps) {
   const isLoading = actionState === "loading"
   const statusTone = getConsumerStatusTone(status)
@@ -216,7 +210,6 @@ function ConsumerControls({
         className={cn(
           "flex min-w-0 flex-col gap-0.5 rounded-md border p-3",
           statusTone === "danger" && "border-destructive bg-destructive/10",
-          statusTone === "paused" && "border-ring bg-secondary",
           statusTone === "ready" && "border-border bg-accent",
         )}
       >
@@ -224,14 +217,6 @@ function ConsumerControls({
         <small className="text-xs text-muted-foreground">{statusDescription}</small>
       </div>
       <div className="flex flex-wrap gap-2 md:justify-end">
-        <Button disabled={isLoading || status?.paused === true} onClick={onPause} type="button" variant="primaryOutline">
-          <Pause data-icon="inline-start" />
-          Pause
-        </Button>
-        <Button disabled={isLoading || status?.paused === false} onClick={onResume} type="button" variant="primaryOutline">
-          <Play data-icon="inline-start" />
-          Resume
-        </Button>
         <Button
           disabled={isLoading || status?.failProcessing === true}
           onClick={onFailProcessing}

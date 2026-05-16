@@ -19,7 +19,7 @@ export function EventPanel({
   tone,
 }: EventPanelProps) {
   return (
-    <Card className="grid min-h-[360px] grid-rows-[auto_1fr]">
+    <Card className="grid min-h-[360px] grid-rows-[auto_1fr] ring-primary">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
