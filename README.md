@@ -260,7 +260,7 @@ POST /consumer/restore-processing
 
 - **Top panel:** create transfer, pause/resume consumer, enable/restore failure mode.
 - **Live Transfers:** events observed on `transfers.created`.
-- **Dead Letter Topic / Replay:** events from `transfers.created.DLT`, replay state, and consumer DB confirmation.
+- **Dead Letter Topic / Replay:** events from `transfers.created.DLT`, replay state, and the matching consumer DB transfer confirmation.
 
 State meanings:
 
@@ -269,7 +269,7 @@ State meanings:
 | `LIVE` | Event observed on the normal Kafka topic |
 | `DLT_PENDING` | Event is in the dead letter topic and waiting for replay |
 | `DLT_REPLAYED` | Event was republished to `transfers.created` |
-| `Consumer DB confirmed` | Matching `event_id` was inserted in `processed_transfers` |
+| `Consumer DB confirmed` | Matching `processed_transfers` row was inserted with the transfer details |
 
 ---
 
