@@ -1,7 +1,7 @@
 package org.aleoterob;
 
-public record ConsumerStatusDto(boolean paused, boolean failProcessing) {
+public record ConsumerStatusDto(boolean failProcessing) {
     public boolean replayReady() {
-        return !paused && !failProcessing;
+        return !failProcessing;
     }
 }

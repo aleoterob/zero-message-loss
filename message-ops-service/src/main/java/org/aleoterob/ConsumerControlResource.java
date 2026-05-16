@@ -19,18 +19,6 @@ public class ConsumerControlResource {
     }
 
     @POST
-    @Path("/pause")
-    public ConsumerStatusDto pause() {
-        return consumerControlClient.pause();
-    }
-
-    @POST
-    @Path("/resume")
-    public ConsumerStatusDto resume() {
-        return consumerControlClient.resume();
-    }
-
-    @POST
     @Path("/fail-processing")
     public ConsumerStatusDto failProcessing() {
         return consumerControlClient.failProcessing();

@@ -27,14 +27,6 @@ public class ConsumerControlClient {
         return send(request);
     }
 
-    public ConsumerStatusDto pause() {
-        return post("/consumer/pause");
-    }
-
-    public ConsumerStatusDto resume() {
-        return post("/consumer/resume");
-    }
-
     public ConsumerStatusDto failProcessing() {
         return post("/consumer/fail-processing");
     }
