@@ -26,4 +26,10 @@ public class EventStreamResource {
     public Multi<TransferEventDto> streamDlt() {
         return eventStreamBus.dltStream();
     }
+
+    @GET
+    @Path("/processed")
+    public Multi<ProcessedEventDto> streamProcessed() {
+        return eventStreamBus.processedStream();
+    }
 }

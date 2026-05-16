@@ -10,6 +10,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class EventStreamBus {
     private final List<MultiEmitter<? super TransferEventDto>> createdEmitters = new CopyOnWriteArrayList<>();
     private final List<MultiEmitter<? super TransferEventDto>> dltEmitters = new CopyOnWriteArrayList<>();
+    private final List<MultiEmitter<? super ProcessedEventDto>> processedEmitters = new CopyOnWriteArrayList<>();
 
     public Multi<TransferEventDto> createdStream() {
         return stream(createdEmitters);
@@ -17,6 +18,10 @@ public class EventStreamBus {
 
     public Multi<TransferEventDto> dltStream() {
         return stream(dltEmitters);
+    }
+
+    public Multi<ProcessedEventDto> processedStream() {
+        return stream(processedEmitters);
     }
 
     public void publishCreated(TransferEventDto event) {
@@ -27,15 +32,19 @@ public class EventStreamBus {
         publish(dltEmitters, event);
     }
 
-    private Multi<TransferEventDto> stream(List<MultiEmitter<? super TransferEventDto>> emitters) {
+    public void publishProcessed(ProcessedEventDto event) {
+        publish(processedEmitters, event);
+    }
+
+    private <T> Multi<T> stream(List<MultiEmitter<? super T>> emitters) {
         return Multi.createFrom().emitter(emitter -> {
             emitters.add(emitter);
             emitter.onTermination(() -> emitters.remove(emitter));
         });
     }
 
-    private void publish(List<MultiEmitter<? super TransferEventDto>> emitters, TransferEventDto event) {
-        for (MultiEmitter<? super TransferEventDto> emitter : emitters) {
+    private <T> void publish(List<MultiEmitter<? super T>> emitters, T event) {
+        for (MultiEmitter<? super T> emitter : emitters) {
             emitter.emit(event);
         }
     }
