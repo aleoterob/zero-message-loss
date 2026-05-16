@@ -236,8 +236,6 @@ npm run dev
 
 ```http
 GET  /consumer/status
-POST /consumer/pause
-POST /consumer/resume
 POST /consumer/fail-processing
 POST /consumer/restore-processing
 ```
@@ -246,19 +244,17 @@ The frontend calls these through `message-ops-service` at:
 
 ```http
 GET  /consumer/status
-POST /consumer/pause
-POST /consumer/resume
 POST /consumer/fail-processing
 POST /consumer/restore-processing
 ```
 
-`pause` stops consumption without sending messages to DLT. `fail-processing` intentionally throws inside the listener so Kafka retries and eventually sends the message to DLT.
+`fail-processing` intentionally throws inside the listener so Kafka retries and eventually sends the message to DLT. `restore-processing` turns processing back on so `message-ops-service` can replay pending DLT messages automatically.
 
 ---
 
 ## Frontend Panels
 
-- **Top panel:** create transfer, pause/resume consumer, enable/restore failure mode.
+- **Top panel:** create transfer, enable/restore failure mode.
 - **Live Transfers:** events observed on `transfers.created`.
 - **Dead Letter Topic / Replay:** events from `transfers.created.DLT`, replay state, and the matching consumer DB transfer confirmation.
 
