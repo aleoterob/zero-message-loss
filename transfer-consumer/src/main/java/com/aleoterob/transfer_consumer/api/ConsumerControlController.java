@@ -21,18 +21,6 @@ public class ConsumerControlController {
 		return consumerControlService.status();
 	}
 
-	@PostMapping("/pause")
-	public ConsumerStatus pause() {
-		consumerControlService.pause();
-		return consumerControlService.status();
-	}
-
-	@PostMapping("/resume")
-	public ConsumerStatus resume() {
-		consumerControlService.resume();
-		return consumerControlService.status();
-	}
-
 	@PostMapping("/fail-processing")
 	public ConsumerStatus failProcessing() {
 		consumerControlService.enableFailProcessing();

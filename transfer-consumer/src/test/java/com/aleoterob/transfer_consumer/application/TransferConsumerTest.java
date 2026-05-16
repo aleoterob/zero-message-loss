@@ -19,7 +19,7 @@ class TransferConsumerTest {
 	@Test
 	void storesEventIdWhenProcessingNewTransferEvent() throws Exception {
 		InMemoryProcessedTransferRepository repository = new InMemoryProcessedTransferRepository();
-		ConsumerControlService controlService = new ConsumerControlService(null);
+		ConsumerControlService controlService = new ConsumerControlService();
 		TransferConsumer consumer = new TransferConsumer(repository, controlService);
 		UUID eventId = UUID.randomUUID();
 		UUID transferId = UUID.randomUUID();
@@ -47,7 +47,7 @@ class TransferConsumerTest {
 		UUID eventId = UUID.randomUUID();
 		UUID transferId = UUID.randomUUID();
 		repository.save(ProcessedTransfer.create(transferEvent(eventId, transferId)));
-		ConsumerControlService controlService = new ConsumerControlService(null);
+		ConsumerControlService controlService = new ConsumerControlService();
 		TransferConsumer consumer = new TransferConsumer(repository, controlService);
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
 
@@ -60,7 +60,7 @@ class TransferConsumerTest {
 	@Test
 	void decodesBase64PayloadProducedByDebeziumOutboxRouter() throws Exception {
 		InMemoryProcessedTransferRepository repository = new InMemoryProcessedTransferRepository();
-		ConsumerControlService controlService = new ConsumerControlService(null);
+		ConsumerControlService controlService = new ConsumerControlService();
 		TransferConsumer consumer = new TransferConsumer(repository, controlService);
 		UUID eventId = UUID.randomUUID();
 		UUID transferId = UUID.randomUUID();
@@ -77,7 +77,7 @@ class TransferConsumerTest {
 
 	@Test
 	void throwsWhenPayloadCannotBeDeserializedSoKafkaCanRetryAndDlt() {
-		ConsumerControlService controlService = new ConsumerControlService(null);
+		ConsumerControlService controlService = new ConsumerControlService();
 		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedTransferRepository(), controlService);
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
 
@@ -89,7 +89,7 @@ class TransferConsumerTest {
 
 	@Test
 	void throwsWhenFailureModeIsEnabledSoKafkaCanRetryAndDlt() {
-		ConsumerControlService controlService = new ConsumerControlService(null);
+		ConsumerControlService controlService = new ConsumerControlService();
 		controlService.enableFailProcessing();
 		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedTransferRepository(), controlService);
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
