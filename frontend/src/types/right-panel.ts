@@ -1,5 +1,6 @@
-import type { TransferEventDto } from "@/types/transfer"
+import type { ProcessedEventDto, TransferEventDto } from "@/types/transfer"
 
 export interface RightPanelProps {
   events: TransferEventDto[]
+  processedEvents: ProcessedEventDto[]
 }

@@ -1,21 +1,36 @@
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, CalendarClock, Hash, RefreshCcw } from "lucide-react"
 
+import { ConsumerTransferDb } from "@/components/layout/consumer-transfer-db"
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import type { EventCardProps, EventPanelProps } from "@/types/transfer"
+import type { EventCardProps, EventPanelProps, ProcessedEventDto } from "@/types/transfer"
+
+const EMPTY_PROCESSED_EVENTS: ProcessedEventDto[] = []
 
 const eventTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  day: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
+  month: "2-digit",
   second: "2-digit",
+  year: "2-digit",
 })
 
-export function EventPanel({ title, description, emptyText, events, tone }: EventPanelProps) {
+export function EventPanel({
+  title,
+  description,
+  emptyText,
+  events,
+  processedEvents = EMPTY_PROCESSED_EVENTS,
+  tone,
+}: EventPanelProps) {
   return (
     <Card className="event-panel">
       <CardHeader>
@@ -31,6 +46,7 @@ export function EventPanel({ title, description, emptyText, events, tone }: Even
               <EventCard
                 event={event}
                 key={`${event.eventId}-${event.deliveryState ?? tone}-${event.replayAttempts ?? 0}`}
+                processedEvent={processedEvents.find((processedEvent) => processedEvent.eventId === event.eventId)}
                 tone={tone}
               />
             ))}
@@ -41,31 +57,62 @@ export function EventPanel({ title, description, emptyText, events, tone }: Even
   )
 }
 
-function EventCard({ event, tone }: EventCardProps) {
+function EventCard({ event, processedEvent, tone }: EventCardProps) {
   const deliveryState = event.deliveryState ?? (event.isDlt ? "DLT_PENDING" : "LIVE")
+  const replayAttempts = event.replayAttempts ?? 0
+  const shouldShowConsumerDb = deliveryState === "DLT_REPLAYED" && processedEvent !== undefined
 
   return (
-    <Card className={`event-card ${tone} ${deliveryState.toLowerCase().replaceAll("_", "-")}`}>
+    <Card className={`event-card ${tone} ${deliveryState.toLowerCase().replaceAll("_", "-")}`} size="sm">
       <CardHeader>
-        <CardTitle>{truncateUuid(event.transferId)}</CardTitle>
-        <CardDescription>{formatDate(event.createdAt)}</CardDescription>
+        <CardTitle>
+          <span>{event.amount}</span>
+          <span>{event.currency}</span>
+        </CardTitle>
+        <CardDescription>
+          <CalendarClock data-icon="inline-start" />
+          {formatDate(event.createdAt)}
+        </CardDescription>
+        <CardAction>
+          <span className={`event-state ${deliveryState.toLowerCase().replaceAll("_", "-")}`}>
+            {formatDeliveryState(deliveryState)}
+          </span>
+        </CardAction>
       </CardHeader>
       <CardContent>
         <div className="route-line">
-          <span>{event.fromAccount}</span>
+          <span title={event.fromAccount}>{event.fromAccount}</span>
           <ArrowRight data-icon="inline-start" />
-          <span>{event.toAccount}</span>
+          <span title={event.toAccount}>{event.toAccount}</span>
         </div>
-        <div className="event-meta">
-          <span>
-            {event.amount} {event.currency}
-          </span>
-          <span>{event.status}</span>
-          <span>{formatDeliveryState(deliveryState)}</span>
-          {event.replayAttempts ? <span>Replay attempts {event.replayAttempts}</span> : null}
+        <div className="event-details">
+          <EventField label="Transfer ID" value={event.transferId} />
+          <EventField label="Event ID" value={event.eventId} />
+          <EventField label="Status" value={event.status} />
+          <EventField label="Source" value={event.isDlt ? "Dead letter topic" : "Live topic"} />
         </div>
+        {shouldShowConsumerDb ? <ConsumerTransferDb processedEvent={processedEvent} /> : null}
       </CardContent>
+      <CardFooter className="event-footer">
+        <span>
+          <Hash data-icon="inline-start" />
+          {truncateUuid(event.eventId)}
+        </span>
+        <span>
+          <RefreshCcw data-icon="inline-start" />
+          Replay attempts {replayAttempts}
+        </span>
+      </CardFooter>
     </Card>
+  )
+}
+
+function EventField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="event-field">
+      <span>{label}</span>
+      <strong title={value}>{value}</strong>
+    </div>
   )
 }
 

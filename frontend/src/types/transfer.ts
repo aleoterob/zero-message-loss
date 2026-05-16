@@ -17,6 +17,12 @@ export interface TransferEventDto {
   replayAttempts?: number
 }
 
+export interface ProcessedEventDto {
+  eventId: string
+  transferId: string
+  processedAt: string
+}
+
 export type EventTone = "live" | "dlt"
 
 export interface EventPanelProps {
@@ -24,10 +30,12 @@ export interface EventPanelProps {
   description: string
   emptyText: string
   events: TransferEventDto[]
+  processedEvents?: ProcessedEventDto[]
   tone: EventTone
 }
 
 export interface EventCardProps {
   event: TransferEventDto
+  processedEvent?: ProcessedEventDto
   tone: EventTone
 }
