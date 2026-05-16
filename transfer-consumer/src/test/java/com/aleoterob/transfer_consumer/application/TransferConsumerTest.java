@@ -35,7 +35,7 @@ class TransferConsumerTest {
 					assertThat(processedTransfer.getToAccount()).isEqualTo("ACC002");
 					assertThat(processedTransfer.getAmount()).isEqualByComparingTo(new BigDecimal("1500.00"));
 					assertThat(processedTransfer.getCurrency()).isEqualTo("ARS");
-					assertThat(processedTransfer.getStatus()).isEqualTo("PENDING");
+					assertThat(processedTransfer.getStatus()).isEqualTo("PROCESSED");
 					assertThat(processedTransfer.getProcessedAt()).isNotNull();
 				});
 		assertThat(acknowledgment.acknowledged).isTrue();

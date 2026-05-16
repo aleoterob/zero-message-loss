@@ -12,6 +12,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "processed_transfers")
 public class ProcessedTransfer {
+	private static final String PROCESSED_STATUS = "PROCESSED";
+
 	@Id
 	@Column(name = "event_id", nullable = false, updatable = false)
 	private UUID eventId;
@@ -48,7 +50,7 @@ public class ProcessedTransfer {
 		processedTransfer.toAccount = event.getToAccount();
 		processedTransfer.amount = new BigDecimal(event.getAmount());
 		processedTransfer.currency = event.getCurrency();
-		processedTransfer.status = event.getStatus();
+		processedTransfer.status = PROCESSED_STATUS;
 		processedTransfer.processedAt = Instant.now();
 		return processedTransfer;
 	}
