@@ -10,9 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import type { EventCardProps, EventPanelProps, ProcessedEventDto } from "@/types/transfer"
+import type { EventCardProps, EventPanelProps, ProcessedTransferDto } from "@/types/transfer"
 
-const EMPTY_PROCESSED_EVENTS: ProcessedEventDto[] = []
+const EMPTY_PROCESSED_TRANSFERS: ProcessedTransferDto[] = []
 
 const eventTimeFormatter = new Intl.DateTimeFormat(undefined, {
   day: "2-digit",
@@ -28,7 +28,7 @@ export function EventPanel({
   description,
   emptyText,
   events,
-  processedEvents = EMPTY_PROCESSED_EVENTS,
+  processedTransfers = EMPTY_PROCESSED_TRANSFERS,
   tone,
 }: EventPanelProps) {
   return (
@@ -46,7 +46,9 @@ export function EventPanel({
               <EventCard
                 event={event}
                 key={`${event.eventId}-${event.deliveryState ?? tone}-${event.replayAttempts ?? 0}`}
-                processedEvent={processedEvents.find((processedEvent) => processedEvent.eventId === event.eventId)}
+                processedTransfer={processedTransfers.find(
+                  (processedTransfer) => processedTransfer.eventId === event.eventId,
+                )}
                 tone={tone}
               />
             ))}
@@ -57,10 +59,10 @@ export function EventPanel({
   )
 }
 
-function EventCard({ event, processedEvent, tone }: EventCardProps) {
+function EventCard({ event, processedTransfer, tone }: EventCardProps) {
   const deliveryState = event.deliveryState ?? (event.isDlt ? "DLT_PENDING" : "LIVE")
   const replayAttempts = event.replayAttempts ?? 0
-  const shouldShowConsumerDb = deliveryState === "DLT_REPLAYED" && processedEvent !== undefined
+  const shouldShowConsumerDb = deliveryState === "DLT_REPLAYED" && processedTransfer !== undefined
 
   return (
     <Card className={`event-card ${tone} ${deliveryState.toLowerCase().replaceAll("_", "-")}`} size="sm">
@@ -91,7 +93,7 @@ function EventCard({ event, processedEvent, tone }: EventCardProps) {
           <EventField label="Status" value={event.status} />
           <EventField label="Source" value={event.isDlt ? "Dead letter topic" : "Live topic"} />
         </div>
-        {shouldShowConsumerDb ? <ConsumerTransferDb processedEvent={processedEvent} /> : null}
+        {shouldShowConsumerDb ? <ConsumerTransferDb processedTransfer={processedTransfer} /> : null}
       </CardContent>
       <CardFooter className="event-footer">
         <span>

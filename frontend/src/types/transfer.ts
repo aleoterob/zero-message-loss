@@ -17,9 +17,14 @@ export interface TransferEventDto {
   replayAttempts?: number
 }
 
-export interface ProcessedEventDto {
+export interface ProcessedTransferDto {
   eventId: string
   transferId: string
+  fromAccount: string
+  toAccount: string
+  amount: string
+  currency: string
+  status: string
   processedAt: string
 }
 
@@ -30,12 +35,12 @@ export interface EventPanelProps {
   description: string
   emptyText: string
   events: TransferEventDto[]
-  processedEvents?: ProcessedEventDto[]
+  processedTransfers?: ProcessedTransferDto[]
   tone: EventTone
 }
 
 export interface EventCardProps {
   event: TransferEventDto
-  processedEvent?: ProcessedEventDto
+  processedTransfer?: ProcessedTransferDto
   tone: EventTone
 }

@@ -1,12 +1,12 @@
 import { Database } from "lucide-react"
 
-import type { ProcessedEventDto } from "@/types/transfer"
+import type { ProcessedTransferDto } from "@/types/transfer"
 
 interface ConsumerTransferDbProps {
-  processedEvent: ProcessedEventDto
+  processedTransfer: ProcessedTransferDto
 }
 
-export function ConsumerTransferDb({ processedEvent }: ConsumerTransferDbProps) {
+export function ConsumerTransferDb({ processedTransfer }: ConsumerTransferDbProps) {
   return (
     <div className="consumer-transfer-db">
       <div className="consumer-transfer-db__header">
@@ -14,9 +14,13 @@ export function ConsumerTransferDb({ processedEvent }: ConsumerTransferDbProps) 
         <span>Consumer DB confirmed</span>
       </div>
       <div className="consumer-transfer-db__grid">
-        <DbField label="Event ID" value={processedEvent.eventId} />
-        <DbField label="Transfer ID" value={processedEvent.transferId} />
-        <DbField label="Processed at" value={formatProcessedAt(processedEvent.processedAt)} />
+        <DbField label="From" value={processedTransfer.fromAccount} />
+        <DbField label="To" value={processedTransfer.toAccount} />
+        <DbField label="Amount" value={`${processedTransfer.amount} ${processedTransfer.currency}`} />
+        <DbField label="Status" value={processedTransfer.status} />
+        <DbField label="Transfer ID" value={processedTransfer.transferId} />
+        <DbField label="Event ID" value={processedTransfer.eventId} />
+        <DbField label="Processed at" value={formatProcessedAt(processedTransfer.processedAt)} />
       </div>
     </div>
   )

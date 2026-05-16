@@ -3,12 +3,12 @@ import { RightPanel } from "@/components/layout/right-panel"
 import { TopPanel } from "@/components/layout/top-panel"
 import { env } from "@/config/env"
 import { useEventStream } from "@/hooks/use-event-stream"
-import { useProcessedEventStream } from "@/hooks/use-processed-event-stream"
+import { useProcessedTransferStream } from "@/hooks/use-processed-transfer-stream"
 
 function App() {
   const liveEvents = useEventStream(env.eventsStreamUrl)
   const dltEvents = useEventStream(env.eventsDltUrl)
-  const processedEvents = useProcessedEventStream(env.eventsProcessedUrl)
+  const processedTransfers = useProcessedTransferStream(env.eventsProcessedUrl)
 
   return (
     <main className="app-shell">
@@ -28,7 +28,7 @@ function App() {
 
       <section className="event-grid">
         <LeftPanel events={liveEvents} />
-        <RightPanel events={dltEvents} processedEvents={processedEvents} />
+        <RightPanel events={dltEvents} processedTransfers={processedTransfers} />
       </section>
     </main>
   )
