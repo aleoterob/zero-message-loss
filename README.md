@@ -1,137 +1,184 @@
 # zero-message-loss
 
-Demonstrates **guaranteed message delivery** in an event-driven banking system.
+Demo de **entrega garantizada de mensajes** para transferencias bancarias usando Transactional Outbox, Debezium CDC, Kafka, DLT, replay automatico y confirmacion en base de datos del consumer.
 
-The core premise: a banking transfer event must **never be lost**, regardless of network failures, service crashes, or Kafka downtime. This is achieved by combining three patterns:
-
-- **Transactional Outbox Pattern** — the transfer and its event are saved atomically in the same DB transaction. No dual-write problem.
-- **Debezium CDC** — reads the Neon PostgreSQL WAL directly and publishes events to Kafka. If Kafka is temporarily down, Debezium retries automatically.
-- **Kafka DLT (Dead Letter Topic)** — messages that exhaust all consumer retries land in a dedicated topic and are never silently dropped.
-- **Message operations and recovery** — DLT events are visible in the dashboard and can be replayed automatically when the consumer is healthy again.
+La idea central es simple: cuando se crea una transferencia, el sistema guarda la transferencia y su evento en la misma transaccion de base de datos. Debezium lee el outbox desde el WAL de Neon y publica el evento en Kafka. Si el consumer falla, Spring Kafka envia el mensaje a un Dead Letter Topic. Luego `message-ops-service` hace replay automatico cuando el consumer vuelve a estar sano, y el frontend muestra en tiempo real cuando el evento fue finalmente persistido en `transfer-consumer-db.processed_events`.
 
 ---
 
 ## Architecture
 
-```
-POST /transfers
-      │
-      ▼
-transfer-producer  ──── Neon DB: transfer-producer-db ────► outbox_events table
-      │                          (transfers table)               │
-      │                                                          │ WAL (CDC)
-      │                                                          ▼
-      │                                                       Debezium
-      │                                                          │
-      │                                                          ▼
-      │                                                        Kafka
-      │                                               ┌─────────┴──────────┐
-      │                                               ▼                    ▼
-      │                                    transfers.created    transfers.created.DLT
-      │                                               │                    │
-      │                                    ┌──────────┘         ┌──────────┘
-      │                                    ▼                    ▼
-      │                             transfer-consumer      transfer-consumer
-      │                             (processes event)      (DLT handler → logs)
-      │                                    │
-      │                             Neon DB: transfer-consumer-db
-      │                             (processed_events table — idempotency)
-      │
-      └──────────────────────────────────────────────────────────────────────►
-                                                              message-ops-service (Quarkus)
-                                                              consumes both topics
-                                                              exposes SSE endpoints
-                                                              replays DLT events
-                                                              controls demo failure modes
-                                                                    │
-                                                                    ▼
-                                                              frontend (React + Vite)
-                                                              real-time event viewer + ops panel
+```text
+frontend
+  | POST /transfers
+  v
+transfer-producer (8081)
+  | same DB transaction
+  |-- transfers
+  `-- outbox_events
+        |
+        | Debezium connector: transfer-outbox-connector
+        v
+Kafka topic: transfers.created
+        |
+        v
+transfer-consumer (8082)
+  | success
+  v
+transfer-consumer-db.processed_events
+        |
+        | Debezium connector: processed-events-connector
+        v
+Kafka topic: consumer.processed-events
+        |
+        v
+message-ops-service (8085) -> SSE /events/processed -> frontend
+
+Failure path:
+
+transfers.created
+  -> transfer-consumer retries
+  -> transfers.created.DLT
+  -> message-ops-service
+  -> automatic replay to transfers.created when consumer is healthy
 ```
 
 ---
 
 ## Services
 
-| Service | Stack | Port | Database |
-|---|---|---|---|
-| `transfer-producer` | Spring Boot 4 + JDK 25 | 8081 | transfer-producer-db (Neon) |
-| `transfer-consumer` | Spring Boot 4 + JDK 25 | 8082 | transfer-consumer-db (Neon) |
-| `message-ops-service` | Quarkus 3.35 + JDK 25 | 8085 | none |
-| `frontend` | React 19 + Vite 8 + TypeScript | 5173 | none |
+| Service | Stack | Port | Responsibility |
+|---|---|---:|---|
+| `transfer-producer` | Spring Boot 4 + JDK 25 | 8081 | Creates transfers and writes outbox events atomically |
+| `transfer-consumer` | Spring Boot 4 + JDK 25 | 8082 | Consumes `transfers.created`, persists `processed_events`, exposes demo control endpoints |
+| `message-ops-service` | Quarkus 3.35 + JDK 25 | 8085 | Streams Kafka events to the frontend, replays DLT events, proxies consumer controls |
+| `frontend` | React 19 + Vite 8 + shadcn/ui | 5173 | Demo dashboard: create transfers, trigger failures, watch live/DLT/DB confirmation |
+
+## Infrastructure
+
+| Container | Port | Responsibility |
+|---|---:|---|
+| `zookeeper` | 2181 | Kafka coordination |
+| `kafka` | 9092 external / 29092 internal | Message broker |
+| `debezium` | 8083 | Kafka Connect + Debezium Postgres connectors |
+| `kafka-ui` | 8080 | Kafka topic and consumer browser |
 
 ---
 
-## Infrastructure (Docker Compose)
+## Kafka Topics
 
-| Container | Port | Role |
+| Topic | Producer | Consumer |
 |---|---|---|
-| `zookeeper` | 2181 | Kafka coordinator |
-| `kafka` | 9092 (external) / 29092 (internal) | Message broker |
-| `debezium` | 8083 | CDC connector — listens to Neon WAL |
-| `kafka-ui` | 8080 | Kafka UI by provectuslabs — topic/message browser |
+| `transfers.created` | Debezium outbox connector, `message-ops-service` replay | `transfer-consumer`, `message-ops-service` |
+| `transfers.created.DLT` | `transfer-consumer` error handler | `transfer-consumer` DLT logger, `message-ops-service` |
+| `consumer.processed-events` | Debezium processed-events connector | `message-ops-service` |
 
 ---
 
-## How to Run
+## Databases
 
-### Prerequisites
-- Docker Desktop running
-- JDK 21+
-- Node.js 20+
+### `transfer-producer-db`
+
+Hibernate creates/updates:
+
+- `transfers`
+- `outbox_events`
+
+Debezium reads `outbox_events` and publishes the Protobuf payload to `transfers.created`.
+
+### `transfer-consumer-db`
+
+Hibernate creates/updates:
+
+- `processed_events`
+
+Debezium reads `processed_events` and publishes database confirmations to `consumer.processed-events`.
+
+---
+
+## Shared Event Schema
+
+All backend services generate Java classes from [proto/transfer_event.proto](proto/transfer_event.proto):
+
+```proto
+message TransferEvent {
+  string event_id = 1;
+  string transfer_id = 2;
+  string from_account = 3;
+  string to_account = 4;
+  string amount = 5;
+  string currency = 6;
+  string status = 7;
+  int64 created_at = 8;
+}
+```
+
+`event_id` is the idempotency key used by `transfer-consumer`.
+
+---
+
+## Setup
 
 ### 1. Start infrastructure
 
 ```bash
-cd C:\Projects\zero-message-loss
 docker compose up -d
 ```
 
 ### 2. Enable logical replication in Neon
 
-In Neon Console → project `transfer-producer-db` → Settings → Logical Replication → Enable.
+Enable **Logical Replication** in both Neon projects:
 
-Then run in Neon SQL Editor:
+- `transfer-producer-db`
+- `transfer-consumer-db`
+
+### 3. Create publications
+
+Run in `transfer-producer-db`:
 
 ```sql
 CREATE PUBLICATION transfer_publication FOR TABLE outbox_events;
 ```
 
-### 3. Register Debezium connector
+Run in `transfer-consumer-db`:
+
+```sql
+CREATE PUBLICATION processed_events_publication FOR TABLE public.processed_events;
+```
+
+### 4. Register Debezium connectors
 
 ```bash
 cd debezium
-bash register-connector.sh
+bash register-producer-connector.sh
+bash register-consumer-connector.sh
 ```
 
 Verify:
 
 ```bash
 curl http://localhost:8083/connectors/transfer-outbox-connector/status
+curl http://localhost:8083/connectors/processed-events-connector/status
 ```
 
-### 4. Start transfer-producer
+Both tasks should be `RUNNING`.
+
+### 5. Start services
 
 ```bash
 cd transfer-producer
 ./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-### 5. Start transfer-consumer
-
 ```bash
 cd transfer-consumer
 ./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-### 6. Start message-ops-service
-
 ```bash
 cd message-ops-service
 ./mvnw quarkus:dev
 ```
-
-### 7. Start frontend
 
 ```bash
 cd frontend
@@ -145,458 +192,46 @@ npm run dev
 
 | URL | Description |
 |---|---|
-| http://localhost:8080 | Kafka UI — browse topics, messages, consumers |
-| http://localhost:8081/transfers | transfer-producer REST API |
-| http://localhost:8083/connectors | Debezium connector status |
-| http://localhost:8085/events/stream | SSE stream — normal events |
-| http://localhost:8085/events/dlt | SSE stream — DLT events |
-| http://localhost:8085/events/dlt/replay | message-ops-service endpoint — replay DLT events |
-| http://localhost:8085/consumer/status | message-ops-service endpoint — consumer health/status for demo controls |
-| http://localhost:5173 | Frontend — real-time event viewer |
+| http://localhost:5173 | Frontend dashboard |
+| http://localhost:8080 | Kafka UI |
+| http://localhost:8081/transfers | Transfer producer API |
+| http://localhost:8082/consumer/status | Transfer consumer status |
+| http://localhost:8083/connectors | Debezium connectors |
+| http://localhost:8085/events/stream | SSE live transfer events |
+| http://localhost:8085/events/dlt | SSE DLT/replay events |
+| http://localhost:8085/events/processed | SSE consumer DB confirmations |
+| http://localhost:8085/consumer/status | Message ops proxy for consumer status |
 
 ---
 
-## Current Status ✅
+## Runtime Flow
 
-- Monorepo initialized with Git and global `.gitignore`
-- `docker-compose.yml` configured — Kafka, Zookeeper, Debezium, Kafka UI
-- `debezium/register-connector.sh` — registers Neon WAL connector pointing to `transfer-producer-db` direct connection
-- `transfer-producer` — Spring Boot service on port 8081. Exposes `POST /transfers`, persists transfers and Protobuf outbox events transactionally, and lets Hibernate create/update `transfers` and `outbox_events`.
-- `transfer-consumer` — Spring Boot service on port 8082. Consumes `transfers.created`, deserializes Protobuf, stores `processed_events` for idempotency, and handles `transfers.created.DLT`.
-- `message-ops-service` — planned rename for the current Quarkus service on port 8085. It consumes `transfers.created` and `transfers.created.DLT`, maps Protobuf/Base64 payloads to JSON DTOs, exposes SSE endpoints at `/events/stream` and `/events/dlt`, and will own DLT replay + demo control endpoints.
-- `frontend` — React 19 + Vite 8 + TypeScript dashboard. Creates transfers, reads SSE streams, and will add consumer controls + DLT replay status.
+### Normal transfer
 
----
+1. The frontend sends `POST /transfers` to `transfer-producer`.
+2. `TransferService` inserts `transfers` and `outbox_events` in one transaction.
+3. Debezium reads `outbox_events` and publishes to `transfers.created`.
+4. `transfer-consumer` parses the Protobuf event and inserts `processed_events`.
+5. Debezium reads `processed_events` and publishes to `consumer.processed-events`.
+6. `message-ops-service` streams the DB confirmation to the frontend.
 
-## Roadmap 🚀
+### DLT + automatic recovery
 
-Everything below is pending. Instructions are written for a coding agent.
-
----
-
-### STEP 1 — Define Protobuf schema (shared between all services)
-
-Create a `proto/` folder at the root of the monorepo:
-
-```
-zero-message-loss/
-└── proto/
-    └── transfer_event.proto
-```
-
-Content of `transfer_event.proto`:
-
-```proto
-syntax = "proto3";
-
-package com.aleoterob.transfer;
-
-option java_package = "com.aleoterob.transfer.proto";
-option java_outer_classname = "TransferEventProto";
-option java_multiple_files = true;
-
-message TransferEvent {
-  string event_id = 1;       // UUID — unique event identifier for idempotency
-  string transfer_id = 2;    // UUID — the transfer this event belongs to
-  string from_account = 3;   // source account number
-  string to_account = 4;     // destination account number
-  string amount = 5;         // decimal as string to avoid floating point issues
-  string currency = 6;       // e.g. "ARS", "USD"
-  string status = 7;         // "PENDING"
-  int64 created_at = 8;      // epoch millis
-}
-```
-
-Add `protobuf-java` to both Spring Boot `pom.xml` files and configure the `protobuf-maven-plugin` to generate Java classes from this `.proto` file into `target/generated-sources/protobuf`.
-
-For `message-ops-service` (Quarkus), add `protobuf-java` and configure the same plugin. Also add `quarkus-smallrye-reactive-messaging-kafka` for Kafka consumption and `quarkus-rest-jackson` for SSE + JSON.
-
-For `frontend`, install `protobufjs` or use plain JSON deserialization (`message-ops-service` will serialize the Protobuf payload to JSON before sending via SSE, so the frontend only needs to handle JSON).
+1. Enable failure mode from the frontend.
+2. Create a transfer.
+3. `transfer-consumer` throws during processing.
+4. Spring Kafka retries and sends the message to `transfers.created.DLT`.
+5. `message-ops-service` shows the event as `DLT_PENDING`.
+6. Restore processing from the frontend.
+7. `message-ops-service` replays the original payload to `transfers.created`.
+8. The card changes to `DLT_REPLAYED`.
+9. When `processed_events` is written in `transfer-consumer-db`, the frontend shows `Consumer DB confirmed`.
 
 ---
 
-### STEP 2 — transfer-producer
+## Transfer Consumer Demo Controls
 
-**Goal:** expose `POST /transfers`, save the transfer and an outbox event atomically, and let Debezium publish the event to Kafka.
-
-#### 2.1 Configure JPA schema creation
-
-The project intentionally lets Hibernate create/update the development schema when the service starts.
-
-Keep this in `application.yaml`:
-
-```yaml
-spring:
-  jpa:
-    hibernate:
-      ddl-auto: update
-```
-
-#### 2.2 Tables generated from JPA entities
-
-Create `Transfer` and `OutboxEvent` as JPA entities. On startup, Hibernate should create/update:
-
-- `transfers`
-- `outbox_events`
-
-Use explicit `@Table` and `@Column` mappings so the generated schema matches Debezium expectations.
-
-**Important:** after the app starts and Hibernate creates `outbox_events`, enable the Neon publication manually in the Neon SQL Editor:
-
-```sql
-CREATE PUBLICATION transfer_publication FOR TABLE outbox_events;
-```
-
-#### 2.3 Package structure
-
-```
-com.aleoterob.transfer_producer
-├── api
-│   └── TransferController.java
-├── application
-│   └── TransferService.java
-├── domain
-│   ├── Transfer.java         (JPA @Entity)
-│   └── OutboxEvent.java      (JPA @Entity)
-├── infrastructure
-│   ├── TransferRepository.java
-│   └── OutboxEventRepository.java
-└── TransferProducerApplication.java
-```
-
-#### 2.4 TransferController
-
-```java
-@RestController
-@RequestMapping("/transfers")
-public class TransferController {
-    @PostMapping
-    public ResponseEntity<Transfer> create(@RequestBody @Valid CreateTransferRequest request) { ... }
-}
-```
-
-`CreateTransferRequest` is a Java record:
-
-```java
-public record CreateTransferRequest(
-  @NotBlank String fromAccount,
-  @NotBlank String toAccount,
-  @NotNull @DecimalMin("0.01") BigDecimal amount,
-  @NotBlank String currency
-) {}
-```
-
-#### 2.5 TransferService — the critical part
-
-```java
-@Service
-@Transactional
-public class TransferService {
-  public Transfer create(CreateTransferRequest request) {
-    // 1. Save transfer
-    Transfer transfer = transferRepository.save(...);
-
-    // 2. Serialize to Protobuf
-    TransferEvent event = TransferEvent.newBuilder()
-      .setEventId(UUID.randomUUID().toString())
-      .setTransferId(transfer.getId().toString())
-      .setFromAccount(transfer.getFromAccount())
-      .setToAccount(transfer.getToAccount())
-      .setAmount(transfer.getAmount().toPlainString())
-      .setCurrency(transfer.getCurrency())
-      .setStatus("PENDING")
-      .setCreatedAt(Instant.now().toEpochMilli())
-      .build();
-
-    // 3. Save outbox event — same transaction
-    OutboxEvent outbox = new OutboxEvent();
-    outbox.setAggregateId(transfer.getId());
-    outbox.setAggregateType("Transfer");
-    outbox.setEventType("TransferCreated");
-    outbox.setPayload(event.toByteArray()); // Protobuf bytes
-    outboxEventRepository.save(outbox);
-
-    return transfer;
-    // Debezium will detect the outbox INSERT via WAL and publish to Kafka
-  }
-}
-```
-
----
-
-### STEP 3 — transfer-consumer
-
-**Goal:** consume `transfers.created` from Kafka, deserialize Protobuf, check idempotency, process, and handle DLT.
-
-#### 3.1 Configure JPA schema creation
-
-Keep this in `application.yaml`:
-
-```yaml
-spring:
-  jpa:
-    hibernate:
-      ddl-auto: update
-```
-
-#### 3.2 Table generated from JPA entity
-
-Create `ProcessedEvent` as a JPA entity. On startup, Hibernate should create/update:
-
-- `processed_events`
-
-#### 3.3 Package structure
-
-```
-com.aleoterob.transfer_consumer
-├── application
-│   ├── TransferConsumer.java     (@KafkaListener)
-│   └── TransferDltConsumer.java  (@KafkaListener on DLT)
-├── domain
-│   └── ProcessedEvent.java       (JPA @Entity)
-├── infrastructure
-│   └── ProcessedEventRepository.java
-└── TransferConsumerApplication.java
-```
-
-#### 3.4 TransferConsumer
-
-```java
-@Component
-public class TransferConsumer {
-
-  @KafkaListener(topics = "transfers.created", groupId = "transfer-consumer-group")
-  public void consume(byte[] message) {
-    TransferEvent event = TransferEvent.parseFrom(message); // deserialize Protobuf
-
-    // Idempotency check
-    UUID eventId = UUID.fromString(event.getEventId());
-    if (processedEventRepository.existsById(eventId)) {
-      log.warn("Duplicate event ignored: {}", eventId);
-      return;
-    }
-
-    // Process (log for now, extend with business logic later)
-    log.info("Processing transfer: {} → {} amount: {} {}",
-      event.getFromAccount(), event.getToAccount(),
-      event.getAmount(), event.getCurrency());
-
-    // Mark as processed
-    processedEventRepository.save(new ProcessedEvent(eventId, UUID.fromString(event.getTransferId())));
-  }
-}
-```
-
-#### 3.5 Retry and DLT configuration
-
-Add to `application.yaml`:
-
-```yaml
-spring:
-  kafka:
-    consumer:
-      group-id: transfer-consumer-group
-      auto-offset-reset: earliest
-      enable-auto-commit: false
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
-    listener:
-      ack-mode: manual
-```
-
-Create a `KafkaConfig.java` bean:
-
-```java
-@Bean
-public DefaultErrorHandler errorHandler(KafkaTemplate<String, byte[]> template) {
-  DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template);
-  FixedBackOff backOff = new FixedBackOff(2000L, 3L); // 3 retries, 2s apart
-  return new DefaultErrorHandler(recoverer, backOff);
-}
-```
-
-#### 3.6 DLT handler
-
-```java
-@Component
-public class TransferDltConsumer {
-
-  @KafkaListener(topics = "transfers.created.DLT", groupId = "transfer-dlt-group")
-  public void handleDlt(byte[] message) {
-    // Log the failed message — extend with alerting (Slack, PagerDuty) later
-    log.error("Message landed in DLT. Raw bytes length: {}", message.length);
-    // Attempt to deserialize for better logging
-    try {
-      TransferEvent event = TransferEvent.parseFrom(message);
-      log.error("DLT event — transferId: {}, from: {}, to: {}, amount: {}",
-        event.getTransferId(), event.getFromAccount(),
-        event.getToAccount(), event.getAmount());
-    } catch (Exception e) {
-      log.error("Could not deserialize DLT message", e);
-    }
-  }
-}
-```
-
-#### 3.7 Demo control endpoints
-
-Expose operational endpoints so the frontend can intentionally create and recover failure scenarios without stopping the Java process.
-
-Use Spring Kafka's `KafkaListenerEndpointRegistry` to pause/resume the listener containers instead of killing the service:
-
-```http
-GET  /consumer/status
-POST /consumer/pause
-POST /consumer/resume
-```
-
-Add a controlled failure mode so messages can exhaust retries and land in DLT:
-
-```http
-POST /consumer/fail-processing
-POST /consumer/restore-processing
-```
-
-When fail-processing is enabled, `TransferConsumer.consume` should throw an exception before saving `processed_events`.
-
-Expected status payload:
-
-```json
-{
-  "paused": false,
-  "failProcessing": false
-}
-```
-
-The `message-ops-service` will call these endpoints; the frontend should not call `transfer-consumer` directly.
-
----
-
-### STEP 4 — message-ops-service (Quarkus)
-
-**Goal:** consume both Kafka topics, stream events to the frontend via SSE, and own operational recovery actions such as replaying DLT messages.
-
-#### 4.1 Add dependencies to `pom.xml`
-
-```xml
-<dependency>
-  <groupId>io.quarkus</groupId>
-  <artifactId>quarkus-smallrye-reactive-messaging-kafka</artifactId>
-</dependency>
-<dependency>
-  <groupId>io.quarkus</groupId>
-  <artifactId>quarkus-rest-jackson</artifactId>
-</dependency>
-<dependency>
-  <groupId>com.google.protobuf</groupId>
-  <artifactId>protobuf-java</artifactId>
-  <version>4.29.3</version>
-</dependency>
-```
-
-Remove `quarkus-rest` if present (replaced by `quarkus-rest-jackson`).
-
-#### 4.2 Configure `application.properties`
-
-```properties
-quarkus.http.port=8085
-quarkus.http.cors.enabled=true
-quarkus.http.cors.origins=http://localhost:5173
-
-mp.messaging.incoming.transfers-created.connector=smallrye-kafka
-mp.messaging.incoming.transfers-created.topic=transfers.created
-mp.messaging.incoming.transfers-created.bootstrap.servers=localhost:9092
-mp.messaging.incoming.transfers-created.value.deserializer=org.apache.kafka.common.serialization.ByteArrayDeserializer
-
-mp.messaging.incoming.transfers-dlt.connector=smallrye-kafka
-mp.messaging.incoming.transfers-dlt.topic=transfers.created.DLT
-mp.messaging.incoming.transfers-dlt.bootstrap.servers=localhost:9092
-mp.messaging.incoming.transfers-dlt.value.deserializer=org.apache.kafka.common.serialization.ByteArrayDeserializer
-```
-
-#### 4.3 Rename service folder and artifact
-
-Rename the current `kafka-ui-service` module to `message-ops-service`.
-
-Update all references consistently:
-
-- folder: `kafka-ui-service` -> `message-ops-service`
-- Maven artifactId: `kafka-ui-service` -> `message-ops-service`
-- docs, scripts, frontend env names, and run commands
-
-Keep the service on port `8085`.
-
-#### 4.4 Package structure
-
-```
-org.aleoterob
-├── EventStreamResource.java       (SSE endpoints)
-├── TransferEventMapper.java       (Protobuf/Base64 → EventDto)
-├── DltReplayResource.java         (manual/admin replay endpoint if needed)
-├── DltReplayService.java          (automatic replay orchestration)
-├── ConsumerControlResource.java   (demo controls proxy/status)
-├── dto
-│   ├── TransferEventDto.java      (record — JSON payload for SSE)
-│   └── ConsumerStatusDto.java     (record — consumer demo state)
-└── messaging
-    ├── TransferCreatedConsumer.java
-    └── TransferDltConsumer.java
-```
-
-#### 4.5 SSE endpoints
-
-```java
-@Path("/events")
-@Produces(MediaType.SERVER_SENT_EVENTS)
-public class EventStreamResource {
-
-  @Inject
-  @Channel("transfers-created-stream")
-  Multi<TransferEventDto> createdStream;
-
-  @Inject
-  @Channel("transfers-dlt-stream")
-  Multi<TransferEventDto> dltStream;
-
-  @GET
-  @Path("/stream")
-  public Multi<TransferEventDto> streamCreated() {
-    return createdStream;
-  }
-
-  @GET
-  @Path("/dlt")
-  public Multi<TransferEventDto> streamDlt() {
-    return dltStream;
-  }
-}
-```
-
-#### 4.6 DLT automatic replay
-
-`message-ops-service` must listen to `transfers.created.DLT` and keep enough in-memory state to show DLT events in the frontend as pending replay.
-
-When the transfer consumer is healthy and processing is enabled again, `message-ops-service` should automatically republish the original DLT payload to:
-
-```text
-transfers.created
-```
-
-The replay should preserve the original Kafka key and original payload. Do not create a new `eventId`; idempotency belongs to `transfer-consumer` through the `processed_events` table.
-
-Recommended behavior:
-
-- DLT event received -> publish to frontend as `DLT_PENDING`
-- consumer unavailable or fail mode enabled -> keep waiting
-- consumer healthy and fail mode disabled -> republish to `transfers.created`
-- replay successful -> publish/update frontend state as `DLT_REPLAYED`
-- consumer processes event -> normal event appears in the live transfers panel
-
-Avoid infinite tight retry loops. Use a small scheduled/backoff retry in `message-ops-service` and keep replay attempts visible in logs.
-
-#### 4.7 Consumer demo controls
-
-`message-ops-service` should expose endpoints used by the frontend operations panel:
+`transfer-consumer` exposes:
 
 ```http
 GET  /consumer/status
@@ -606,297 +241,87 @@ POST /consumer/fail-processing
 POST /consumer/restore-processing
 ```
 
-These endpoints should call corresponding endpoints in `transfer-consumer`; `message-ops-service` is the frontend-facing operations API.
+The frontend calls these through `message-ops-service` at:
 
-#### 4.8 TransferEventDto (record)
-
-```java
-public record TransferEventDto(
-  String eventId,
-  String transferId,
-  String fromAccount,
-  String toAccount,
-  String amount,
-  String currency,
-  String status,
-  long createdAt,
-  boolean isDlt
-) {}
+```http
+GET  /consumer/status
+POST /consumer/pause
+POST /consumer/resume
+POST /consumer/fail-processing
+POST /consumer/restore-processing
 ```
 
-Add fields later if the frontend needs operational status:
+`pause` stops consumption without sending messages to DLT. `fail-processing` intentionally throws inside the listener so Kafka retries and eventually sends the message to DLT.
 
-```java
-String deliveryState; // LIVE, DLT_PENDING, DLT_REPLAYED, DLT_REPLAY_FAILED
-int replayAttempts;
+---
+
+## Frontend Panels
+
+- **Top panel:** create transfer, pause/resume consumer, enable/restore failure mode.
+- **Live Transfers:** events observed on `transfers.created`.
+- **Dead Letter Topic / Replay:** events from `transfers.created.DLT`, replay state, and consumer DB confirmation.
+
+State meanings:
+
+| State | Meaning |
+|---|---|
+| `LIVE` | Event observed on the normal Kafka topic |
+| `DLT_PENDING` | Event is in the dead letter topic and waiting for replay |
+| `DLT_REPLAYED` | Event was republished to `transfers.created` |
+| `Consumer DB confirmed` | Matching `event_id` was inserted in `processed_events` |
+
+---
+
+## Tests And Checks
+
+Backend:
+
+```bash
+cd transfer-producer
+./mvnw test
+
+cd transfer-consumer
+./mvnw test
+
+cd message-ops-service
+./mvnw test
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+npx -y react-doctor@latest . --verbose --diff
 ```
 
 ---
 
-### STEP 5 — frontend (React + Vite + TypeScript)
+## Troubleshooting
 
-**Goal:** provide a single demo screen that can create transfers, display real-time events from both SSE endpoints, control the consumer demo state, and make automatic DLT replay visible.
-
-#### 5.1 Install and configure shadcn/ui
-
-Initialize shadcn/ui in the Vite frontend and install the components needed for the demo UI.
-
-Use shadcn components instead of hand-rolled form controls/cards:
-
-- `Card` — top transfer creation panel and event cards
-- `Button` — create transfer action
-- `Input` — amount entry
-- `Label` or shadcn form field primitives — accessible field labels
-- Combobox pattern/components — account selection for `fromAccount` and `toAccount`
-
-For the account comboboxes, use shadcn's combobox composition pattern (typically `Button` + `Popover` + `Command`) and install whatever shadcn components that pattern requires.
-
-Do not modify original shadcn components in `src/shared/components/ui` unless only adding/modifying variants.
-
-#### 5.2 Replace default Vite template
-
-Delete all content from `App.tsx`, `App.css`, `index.css`. Start from scratch.
-
-#### 5.3 Top panel — Create Transfer and Consumer Controls
-
-Add a top `Card` that posts to:
-
-```http
-POST http://localhost:8081/transfers
-```
-
-The card should contain:
-
-- A shadcn combobox for `fromAccount`
-- A shadcn combobox for `toAccount`
-- A shadcn `Input` for `amount`
-- A shadcn `Button` to create the transfer
-- A shadcn `Button` to pause the consumer
-- A shadcn `Button` to resume the consumer
-- A shadcn toggle/button to enable fail-processing mode
-- A shadcn toggle/button to restore normal processing
-
-Use frontend-only dummy account data for both comboboxes:
-
-```typescript
-const dummyAccounts = [
-  { id: "ACC001", label: "ACC001 — Payroll Account" },
-  { id: "ACC002", label: "ACC002 — Savings Account" },
-  { id: "ACC003", label: "ACC003 — Vendor Payments" },
-  { id: "ACC004", label: "ACC004 — Treasury Account" },
-  { id: "ACC005", label: "ACC005 — Operations Account" },
-];
-```
-
-The transfer request body should be:
-
-```typescript
-{
-  fromAccount: string;
-  toAccount: string;
-  amount: number;
-  currency: "ARS";
-}
-```
-
-Show submit states:
-
-- idle
-- loading
-- success
-- error
-
-After a successful submit, keep the SSE panels as the source of truth for whether the event appeared.
-
-Consumer control actions should call `message-ops-service`, not `transfer-consumer` directly:
-
-```http
-GET  http://localhost:8085/consumer/status
-POST http://localhost:8085/consumer/pause
-POST http://localhost:8085/consumer/resume
-POST http://localhost:8085/consumer/fail-processing
-POST http://localhost:8085/consumer/restore-processing
-```
-
-Show compact status in the top panel:
-
-- `Consumer running`
-- `Consumer paused`
-- `Failure mode enabled`
-- `Automatic replay waiting`
-
-#### 5.4 Event viewer
-
-Split-panel layout:
-
-- **Left panel — Live Transfers** — events received from `GET /events/stream`
-- **Right panel — Dead Letter Topic / Replay** — events received from `GET /events/dlt`
-
-Each event card shows:
-
-- `transferId` (truncated UUID)
-- `fromAccount -> toAccount`
-- `amount` + `currency`
-- `status`
-- `createdAt` formatted as local time
-- replay/delivery state if present
-- Color: green for normal, red for DLT pending, amber/blue for replayed
-
-Use shadcn `Card` for each event item.
-
-#### 5.5 SSE connection
-
-Use native `EventSource` API:
-
-```typescript
-// hooks/useEventStream.ts
-export function useEventStream(url: string) {
-  const [events, setEvents] = useState<TransferEventDto[]>([]);
-
-  useEffect(() => {
-    const source = new EventSource(url);
-    source.onmessage = (e) => {
-      const event: TransferEventDto = JSON.parse(e.data);
-      setEvents(prev => [event, ...prev]); // newest first
-    };
-    return () => source.close();
-  }, [url]);
-
-  return events;
-}
-```
-
-#### 5.6 TransferEventDto TypeScript type
-
-```typescript
-export interface TransferEventDto {
-  eventId: string;
-  transferId: string;
-  fromAccount: string;
-  toAccount: string;
-  amount: string;
-  currency: string;
-  status: string;
-  createdAt: number;
-  isDlt: boolean;
-  deliveryState?: "LIVE" | "DLT_PENDING" | "DLT_REPLAYED" | "DLT_REPLAY_FAILED";
-  replayAttempts?: number;
-}
-```
-
-#### 5.7 Dependencies
-
-Do not install TanStack Query — SSE is handled natively with `EventSource` and `useState`.
-
-External UI dependencies are allowed only as required by shadcn/ui setup and installed shadcn components.
-
----
-
-### STEP 6 — End-to-end validation
-
-Once all services are running, verify the full flow:
-
-1. `POST http://localhost:8081/transfers` with body `{ "fromAccount": "ACC001", "toAccount": "ACC002", "amount": 1500.00, "currency": "ARS" }`
-2. Verify in Kafka UI (http://localhost:8080) that topic `transfers.created` received a message
-3. Verify in `transfer-consumer` logs that the event was processed
-4. Verify in `processed_events` table in Neon that the `event_id` was saved
-5. Verify the event appears in the frontend left panel in real time
-6. Click `Enable failure mode` in the frontend operations panel
-7. Create another transfer
-8. Verify Spring Kafka retries and then publishes the failed message to `transfers.created.DLT`
-9. Verify the DLT event appears in the frontend right panel as `DLT_PENDING`
-10. Click `Restore processing`
-11. Verify `message-ops-service` automatically republishes the DLT payload to `transfers.created`
-12. Verify the DLT event changes to `DLT_REPLAYED`
-13. Verify `transfer-consumer` processes the replayed event and inserts it in `processed_events`
-14. To test idempotency: replay the same `event_id` again — confirm the consumer logs "Duplicate event ignored" and does not insert into `processed_events` again
-
-### STEP 7 — Demo scenario
-
-Use this sequence when presenting the project:
-
-1. Start Docker, Debezium, `transfer-producer`, `transfer-consumer`, `message-ops-service`, and `frontend`
-2. Create a normal transfer and show it moving from producer DB -> Kafka -> consumer DB -> frontend live panel
-3. Enable failure mode from the frontend
-4. Create a second transfer and show it landing in the DLT panel
-5. Restore processing from the frontend
-6. Show automatic replay from DLT back to `transfers.created`
-7. Show the consumer DB receiving the recovered event
-8. Explain that the original event ID is preserved and `processed_events` protects the consumer from duplicates
-
-### STEP 8 — Consumer DB confirmation stream
-
-**Goal:** when a DLT card reaches `DLT_REPLAYED`, show real-time confirmation that the replayed event was actually written to `transfer-consumer-db.processed_events`.
-
-#### 8.1 Enable logical replication and CDC publication on `transfer-consumer-db`
-
-In Neon Console -> project `transfer-consumer-db` -> Settings -> Logical Replication -> Enable.
-
-Run this once in Neon SQL Editor for project `transfer-consumer-db`, database `neondb`:
-
-```sql
-CREATE PUBLICATION processed_events_publication FOR TABLE public.processed_events;
-```
-
-#### 8.2 Register a second Debezium connector
-
-Add a new script:
+If a Debezium connector task fails with:
 
 ```text
-debezium/register-consumer-connector.sh
+logical decoding requires "wal_level" >= "logical"
 ```
 
-The connector should read `public.processed_events` from `transfer-consumer-db` and route inserts to:
+Enable Logical Replication in the corresponding Neon project and rerun the connector script.
+
+If a connector already exists, the scripts use `PUT`, so they can be run again safely:
+
+```bash
+bash debezium/register-producer-connector.sh
+bash debezium/register-consumer-connector.sh
+```
+
+If VS Code shows a Maven error for:
 
 ```text
-consumer.processed-events
+com.google.protobuf:protoc:exe:${os.detected.classifier}
 ```
 
-Do not use Debezium's outbox `EventRouter` here. `processed_events` is not an outbox table; consume the normal Debezium JSON envelope and map the `after` payload.
+but Maven works from the terminal, run:
 
-#### 8.3 Consume processed events in `message-ops-service`
-
-Add an incoming Kafka channel:
-
-```properties
-mp.messaging.incoming.processed-events.connector=smallrye-kafka
-mp.messaging.incoming.processed-events.topic=consumer.processed-events
-mp.messaging.incoming.processed-events.bootstrap.servers=localhost:9092
-mp.messaging.incoming.processed-events.value.deserializer=org.apache.kafka.common.serialization.StringDeserializer
-```
-
-Create a DTO:
-
-```java
-public record ProcessedEventDto(
-  String eventId,
-  String transferId,
-  String processedAt
-) {}
-```
-
-Expose a new SSE endpoint:
-
-```http
-GET /events/processed
-```
-
-This stream means "the event was persisted by `transfer-consumer` in `processed_events`".
-
-#### 8.4 Show DB confirmation in the frontend
-
-Add an EventSource hook for:
-
-```http
-GET http://localhost:8085/events/processed
-```
-
-In the right panel, when a DLT card has `deliveryState = DLT_REPLAYED`, look for a processed event with the same `eventId`.
-
-Render `consumer-transfer-db.tsx` inside the card only when matching DB data exists.
-
-Visual meaning:
-
-- `DLT_PENDING` — event is in the dead letter topic and waiting for replay
-- `DLT_REPLAYED` — `message-ops-service` republished the payload to `transfers.created`
-- `consumer-transfer-db.tsx` visible — `transfer-consumer` processed the replayed event and inserted it into `processed_events`
+- `Java: Clean Java Language Server Workspace`
+- `Maven: Reload All Maven Projects`
