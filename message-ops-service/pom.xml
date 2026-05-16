@@ -140,6 +140,17 @@
 
     <profiles>
         <profile>
+            <id>windows-protobuf-classifier</id>
+            <activation>
+                <os>
+                    <family>Windows</family>
+                </os>
+            </activation>
+            <properties>
+                <os.detected.classifier>windows-x86_64</os.detected.classifier>
+            </properties>
+        </profile>
+        <profile>
             <id>native</id>
             <activation>
                 <property>
