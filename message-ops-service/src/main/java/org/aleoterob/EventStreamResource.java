@@ -29,7 +29,7 @@ public class EventStreamResource {
 
     @GET
     @Path("/processed")
-    public Multi<ProcessedEventDto> streamProcessed() {
+    public Multi<ProcessedTransferDto> streamProcessed() {
         return eventStreamBus.processedStream();
     }
 }
