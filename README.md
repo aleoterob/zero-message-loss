@@ -2,7 +2,7 @@
 
 Demo de **entrega garantizada de mensajes** para transferencias bancarias usando Transactional Outbox, Debezium CDC, Kafka, DLT, replay automatico y confirmacion en base de datos del consumer.
 
-La idea central es simple: cuando se crea una transferencia, el sistema guarda la transferencia y su evento en la misma transaccion de base de datos. Debezium lee el outbox desde el WAL de Neon y publica el evento en Kafka. Si el consumer falla, Spring Kafka envia el mensaje a un Dead Letter Topic. Luego `message-ops-service` hace replay automatico cuando el consumer vuelve a estar sano, y el frontend muestra en tiempo real cuando el evento fue finalmente persistido en `transfer-consumer-db.processed_events`.
+La idea central es simple: cuando se crea una transferencia, el sistema guarda la transferencia y su evento en la misma transaccion de base de datos. Debezium lee el outbox desde el WAL de Neon y publica el evento en Kafka. Si el consumer falla, Spring Kafka envia el mensaje a un Dead Letter Topic. Luego `message-ops-service` hace replay automatico cuando el consumer vuelve a estar sano, y el frontend muestra en tiempo real cuando el evento fue finalmente persistido en `transfer-consumer-db.processed_transfers`.
 
 ---
 
@@ -25,11 +25,11 @@ Kafka topic: transfers.created
 transfer-consumer (8082)
   | success
   v
-transfer-consumer-db.processed_events
+transfer-consumer-db.processed_transfers
         |
-        | Debezium connector: processed-events-connector
+        | Debezium connector: processed-transfers-connector
         v
-Kafka topic: consumer.processed-events
+Kafka topic: consumer.processed-transfers
         |
         v
 message-ops-service (8085) -> SSE /events/processed -> frontend
@@ -50,7 +50,7 @@ transfers.created
 | Service | Stack | Port | Responsibility |
 |---|---|---:|---|
 | `transfer-producer` | Spring Boot 4 + JDK 25 | 8081 | Creates transfers and writes outbox events atomically |
-| `transfer-consumer` | Spring Boot 4 + JDK 25 | 8082 | Consumes `transfers.created`, persists `processed_events`, exposes demo control endpoints |
+| `transfer-consumer` | Spring Boot 4 + JDK 25 | 8082 | Consumes `transfers.created`, persists `processed_transfers`, exposes demo control endpoints |
 | `message-ops-service` | Quarkus 3.35 + JDK 25 | 8085 | Streams Kafka events to the frontend, replays DLT events, proxies consumer controls |
 | `frontend` | React 19 + Vite 8 + shadcn/ui | 5173 | Demo dashboard: create transfers, trigger failures, watch live/DLT/DB confirmation |
 
@@ -71,7 +71,7 @@ transfers.created
 |---|---|---|
 | `transfers.created` | Debezium outbox connector, `message-ops-service` replay | `transfer-consumer`, `message-ops-service` |
 | `transfers.created.DLT` | `transfer-consumer` error handler | `transfer-consumer` DLT logger, `message-ops-service` |
-| `consumer.processed-events` | Debezium processed-events connector | `message-ops-service` |
+| `consumer.processed-transfers` | Debezium processed-transfers connector | `message-ops-service` |
 
 ---
 
@@ -90,9 +90,9 @@ Debezium reads `outbox_events` and publishes the Protobuf payload to `transfers.
 
 Hibernate creates/updates:
 
-- `processed_events`
+- `processed_transfers`
 
-Debezium reads `processed_events` and publishes database confirmations to `consumer.processed-events`.
+Debezium reads `processed_transfers` and publishes database confirmations to `consumer.processed-transfers`.
 
 ---
 
@@ -143,7 +143,8 @@ CREATE PUBLICATION transfer_publication FOR TABLE outbox_events;
 Run in `transfer-consumer-db`:
 
 ```sql
-CREATE PUBLICATION processed_events_publication FOR TABLE public.processed_events;
+CREATE PUBLICATION processed_transfers_publication
+FOR TABLE public.processed_transfers;
 ```
 
 ### 4. Register Debezium connectors
@@ -158,7 +159,7 @@ Verify:
 
 ```bash
 curl http://localhost:8083/connectors/transfer-outbox-connector/status
-curl http://localhost:8083/connectors/processed-events-connector/status
+curl http://localhost:8083/connectors/processed-transfers-connector/status
 ```
 
 Both tasks should be `RUNNING`.
@@ -211,8 +212,8 @@ npm run dev
 1. The frontend sends `POST /transfers` to `transfer-producer`.
 2. `TransferService` inserts `transfers` and `outbox_events` in one transaction.
 3. Debezium reads `outbox_events` and publishes to `transfers.created`.
-4. `transfer-consumer` parses the Protobuf event and inserts `processed_events`.
-5. Debezium reads `processed_events` and publishes to `consumer.processed-events`.
+4. `transfer-consumer` parses the Protobuf event and inserts `processed_transfers`.
+5. Debezium reads `processed_transfers` and publishes to `consumer.processed-transfers`.
 6. `message-ops-service` streams the DB confirmation to the frontend.
 
 ### DLT + automatic recovery
@@ -225,7 +226,7 @@ npm run dev
 6. Restore processing from the frontend.
 7. `message-ops-service` replays the original payload to `transfers.created`.
 8. The card changes to `DLT_REPLAYED`.
-9. When `processed_events` is written in `transfer-consumer-db`, the frontend shows `Consumer DB confirmed`.
+9. When `processed_transfers` is written in `transfer-consumer-db`, the frontend shows `Consumer DB confirmed`.
 
 ---
 
@@ -268,7 +269,7 @@ State meanings:
 | `LIVE` | Event observed on the normal Kafka topic |
 | `DLT_PENDING` | Event is in the dead letter topic and waiting for replay |
 | `DLT_REPLAYED` | Event was republished to `transfers.created` |
-| `Consumer DB confirmed` | Matching `event_id` was inserted in `processed_events` |
+| `Consumer DB confirmed` | Matching `event_id` was inserted in `processed_transfers` |
 
 ---
 
@@ -314,6 +315,8 @@ If a connector already exists, the scripts use `PUT`, so they can be run again s
 bash debezium/register-producer-connector.sh
 bash debezium/register-consumer-connector.sh
 ```
+
+The consumer connector script also removes the old `processed-events-connector` name before registering `processed-transfers-connector`.
 
 If VS Code shows a Maven error for:
 
