@@ -823,3 +823,80 @@ Use this sequence when presenting the project:
 6. Show automatic replay from DLT back to `transfers.created`
 7. Show the consumer DB receiving the recovered event
 8. Explain that the original event ID is preserved and `processed_events` protects the consumer from duplicates
+
+### STEP 8 — Consumer DB confirmation stream
+
+**Goal:** when a DLT card reaches `DLT_REPLAYED`, show real-time confirmation that the replayed event was actually written to `transfer-consumer-db.processed_events`.
+
+#### 8.1 Enable logical replication and CDC publication on `transfer-consumer-db`
+
+In Neon Console -> project `transfer-consumer-db` -> Settings -> Logical Replication -> Enable.
+
+Run this once in Neon SQL Editor for project `transfer-consumer-db`, database `neondb`:
+
+```sql
+CREATE PUBLICATION processed_events_publication FOR TABLE public.processed_events;
+```
+
+#### 8.2 Register a second Debezium connector
+
+Add a new script:
+
+```text
+debezium/register-consumer-connector.sh
+```
+
+The connector should read `public.processed_events` from `transfer-consumer-db` and route inserts to:
+
+```text
+consumer.processed-events
+```
+
+Do not use Debezium's outbox `EventRouter` here. `processed_events` is not an outbox table; consume the normal Debezium JSON envelope and map the `after` payload.
+
+#### 8.3 Consume processed events in `message-ops-service`
+
+Add an incoming Kafka channel:
+
+```properties
+mp.messaging.incoming.processed-events.connector=smallrye-kafka
+mp.messaging.incoming.processed-events.topic=consumer.processed-events
+mp.messaging.incoming.processed-events.bootstrap.servers=localhost:9092
+mp.messaging.incoming.processed-events.value.deserializer=org.apache.kafka.common.serialization.StringDeserializer
+```
+
+Create a DTO:
+
+```java
+public record ProcessedEventDto(
+  String eventId,
+  String transferId,
+  String processedAt
+) {}
+```
+
+Expose a new SSE endpoint:
+
+```http
+GET /events/processed
+```
+
+This stream means "the event was persisted by `transfer-consumer` in `processed_events`".
+
+#### 8.4 Show DB confirmation in the frontend
+
+Add an EventSource hook for:
+
+```http
+GET http://localhost:8085/events/processed
+```
+
+In the right panel, when a DLT card has `deliveryState = DLT_REPLAYED`, look for a processed event with the same `eventId`.
+
+Render `consumer-transfer-db.tsx` inside the card only when matching DB data exists.
+
+Visual meaning:
+
+- `DLT_PENDING` — event is in the dead letter topic and waiting for replay
+- `DLT_REPLAYED` — `message-ops-service` republished the payload to `transfers.created`
+- `consumer-transfer-db.tsx` visible — `transfer-consumer` processed the replayed event and inserted it into `processed_events`
