@@ -1,8 +1,8 @@
 package com.aleoterob.transfer_consumer.application;
 
 import com.aleoterob.transfer.proto.TransferEvent;
-import com.aleoterob.transfer_consumer.domain.ProcessedEvent;
-import com.aleoterob.transfer_consumer.infrastructure.ProcessedEventRepository;
+import com.aleoterob.transfer_consumer.domain.ProcessedTransfer;
+import com.aleoterob.transfer_consumer.infrastructure.ProcessedTransferRepository;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -16,12 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class TransferConsumer {
 	private static final Logger log = LoggerFactory.getLogger(TransferConsumer.class);
 
-	private final ProcessedEventRepository processedEventRepository;
+	private final ProcessedTransferRepository processedTransferRepository;
 	private final ConsumerControlService consumerControlService;
 
-	public TransferConsumer(ProcessedEventRepository processedEventRepository,
+	public TransferConsumer(ProcessedTransferRepository processedTransferRepository,
 			ConsumerControlService consumerControlService) {
-		this.processedEventRepository = processedEventRepository;
+		this.processedTransferRepository = processedTransferRepository;
 		this.consumerControlService = consumerControlService;
 	}
 
@@ -35,7 +35,7 @@ public class TransferConsumer {
 		TransferEvent event = TransferEventPayload.parse(message);
 		UUID eventId = UUID.fromString(event.getEventId());
 
-		if (processedEventRepository.existsById(eventId)) {
+		if (processedTransferRepository.existsById(eventId)) {
 			log.warn("Duplicate event ignored: {}", eventId);
 			acknowledgment.acknowledge();
 			return;
@@ -47,7 +47,7 @@ public class TransferConsumer {
 				event.getAmount(),
 				event.getCurrency());
 
-		processedEventRepository.save(ProcessedEvent.create(eventId, UUID.fromString(event.getTransferId())));
+		processedTransferRepository.save(ProcessedTransfer.create(event));
 		acknowledgment.acknowledge();
 	}
 }

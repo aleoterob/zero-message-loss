@@ -3,9 +3,10 @@ package com.aleoterob.transfer_consumer.application;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aleoterob.transfer.proto.TransferEvent;
-import com.aleoterob.transfer_consumer.domain.ProcessedEvent;
-import com.aleoterob.transfer_consumer.infrastructure.ProcessedEventRepository;
+import com.aleoterob.transfer_consumer.domain.ProcessedTransfer;
+import com.aleoterob.transfer_consumer.infrastructure.ProcessedTransferRepository;
 import com.google.protobuf.InvalidProtocolBufferException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -17,7 +18,7 @@ class TransferConsumerTest {
 
 	@Test
 	void storesEventIdWhenProcessingNewTransferEvent() throws Exception {
-		InMemoryProcessedEventRepository repository = new InMemoryProcessedEventRepository();
+		InMemoryProcessedTransferRepository repository = new InMemoryProcessedTransferRepository();
 		ConsumerControlService controlService = new ConsumerControlService(null);
 		TransferConsumer consumer = new TransferConsumer(repository, controlService);
 		UUID eventId = UUID.randomUUID();
@@ -27,20 +28,25 @@ class TransferConsumerTest {
 		consumer.consume(transferEvent(eventId, transferId).toByteArray(), acknowledgment);
 
 		assertThat(repository.saved).singleElement()
-				.satisfies(processedEvent -> {
-					assertThat(processedEvent.getEventId()).isEqualTo(eventId);
-					assertThat(processedEvent.getTransferId()).isEqualTo(transferId);
-					assertThat(processedEvent.getProcessedAt()).isNotNull();
+				.satisfies(processedTransfer -> {
+					assertThat(processedTransfer.getEventId()).isEqualTo(eventId);
+					assertThat(processedTransfer.getTransferId()).isEqualTo(transferId);
+					assertThat(processedTransfer.getFromAccount()).isEqualTo("ACC001");
+					assertThat(processedTransfer.getToAccount()).isEqualTo("ACC002");
+					assertThat(processedTransfer.getAmount()).isEqualByComparingTo(new BigDecimal("1500.00"));
+					assertThat(processedTransfer.getCurrency()).isEqualTo("ARS");
+					assertThat(processedTransfer.getStatus()).isEqualTo("PENDING");
+					assertThat(processedTransfer.getProcessedAt()).isNotNull();
 				});
 		assertThat(acknowledgment.acknowledged).isTrue();
 	}
 
 	@Test
 	void ignoresDuplicateTransferEvent() throws Exception {
-		InMemoryProcessedEventRepository repository = new InMemoryProcessedEventRepository();
+		InMemoryProcessedTransferRepository repository = new InMemoryProcessedTransferRepository();
 		UUID eventId = UUID.randomUUID();
 		UUID transferId = UUID.randomUUID();
-		repository.save(ProcessedEvent.create(eventId, transferId));
+		repository.save(ProcessedTransfer.create(transferEvent(eventId, transferId)));
 		ConsumerControlService controlService = new ConsumerControlService(null);
 		TransferConsumer consumer = new TransferConsumer(repository, controlService);
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
@@ -53,7 +59,7 @@ class TransferConsumerTest {
 
 	@Test
 	void decodesBase64PayloadProducedByDebeziumOutboxRouter() throws Exception {
-		InMemoryProcessedEventRepository repository = new InMemoryProcessedEventRepository();
+		InMemoryProcessedTransferRepository repository = new InMemoryProcessedTransferRepository();
 		ConsumerControlService controlService = new ConsumerControlService(null);
 		TransferConsumer consumer = new TransferConsumer(repository, controlService);
 		UUID eventId = UUID.randomUUID();
@@ -65,14 +71,14 @@ class TransferConsumerTest {
 		consumer.consume(encodedPayload, acknowledgment);
 
 		assertThat(repository.saved).singleElement()
-				.satisfies(processedEvent -> assertThat(processedEvent.getEventId()).isEqualTo(eventId));
+				.satisfies(processedTransfer -> assertThat(processedTransfer.getEventId()).isEqualTo(eventId));
 		assertThat(acknowledgment.acknowledged).isTrue();
 	}
 
 	@Test
 	void throwsWhenPayloadCannotBeDeserializedSoKafkaCanRetryAndDlt() {
 		ConsumerControlService controlService = new ConsumerControlService(null);
-		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedEventRepository(), controlService);
+		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedTransferRepository(), controlService);
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
 
 		org.junit.jupiter.api.Assertions.assertThrows(
@@ -85,7 +91,7 @@ class TransferConsumerTest {
 	void throwsWhenFailureModeIsEnabledSoKafkaCanRetryAndDlt() {
 		ConsumerControlService controlService = new ConsumerControlService(null);
 		controlService.enableFailProcessing();
-		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedEventRepository(), controlService);
+		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedTransferRepository(), controlService);
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
 
 		org.junit.jupiter.api.Assertions.assertThrows(
@@ -107,18 +113,18 @@ class TransferConsumerTest {
 				.build();
 	}
 
-	private static final class InMemoryProcessedEventRepository implements ProcessedEventRepository {
-		private final List<ProcessedEvent> saved = new ArrayList<>();
+	private static final class InMemoryProcessedTransferRepository implements ProcessedTransferRepository {
+		private final List<ProcessedTransfer> saved = new ArrayList<>();
 
 		@Override
 		public boolean existsById(UUID eventId) {
-			return saved.stream().anyMatch(processedEvent -> processedEvent.getEventId().equals(eventId));
+			return saved.stream().anyMatch(processedTransfer -> processedTransfer.getEventId().equals(eventId));
 		}
 
 		@Override
-		public ProcessedEvent save(ProcessedEvent processedEvent) {
-			saved.add(processedEvent);
-			return processedEvent;
+		public ProcessedTransfer save(ProcessedTransfer processedTransfer) {
+			saved.add(processedTransfer);
+			return processedTransfer;
 		}
 	}
 
