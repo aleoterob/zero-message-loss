@@ -11,6 +11,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "transfers")
 public class Transfer {
+	public static final String PROCESSED_STATUS = "PROCESSED";
+
 	@Id
 	@Column(nullable = false, updatable = false)
 	private UUID id;
@@ -70,6 +72,10 @@ public class Transfer {
 
 	public String getStatus() {
 		return status;
+	}
+
+	public void markProcessed() {
+		status = PROCESSED_STATUS;
 	}
 
 	public Instant getCreatedAt() {

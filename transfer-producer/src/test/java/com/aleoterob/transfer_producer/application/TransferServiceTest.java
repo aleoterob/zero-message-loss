@@ -11,6 +11,8 @@ import com.aleoterob.transfer_producer.infrastructure.TransferRepository;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class TransferServiceTest {
@@ -55,6 +57,13 @@ class TransferServiceTest {
 		public Transfer save(Transfer transfer) {
 			saved.add(transfer);
 			return transfer;
+		}
+
+		@Override
+		public Optional<Transfer> findById(UUID id) {
+			return saved.stream()
+					.filter(transfer -> transfer.getId().equals(id))
+					.findFirst();
 		}
 	}
 
