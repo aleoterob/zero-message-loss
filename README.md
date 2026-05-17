@@ -26,6 +26,14 @@ transfer-consumer (8082)
   | success
   v
 transfer-consumer-db.processed_transfers
+  | publish processing confirmation
+  v
+Kafka topic: transfers.processed
+  |
+  v
+transfer-producer updates transfers.status = PROCESSED
+
+transfer-consumer-db.processed_transfers
         |
         | Debezium connector: processed-transfers-connector
         v
@@ -47,31 +55,32 @@ transfers.created
 
 ## Services
 
-| Service | Stack | Port | Responsibility |
-|---|---|---:|---|
-| `transfer-producer` | Spring Boot 4 + JDK 25 | 8081 | Creates transfers and writes outbox events atomically |
-| `transfer-consumer` | Spring Boot 4 + JDK 25 | 8082 | Consumes `transfers.created`, persists `processed_transfers`, exposes demo control endpoints |
-| `message-ops-service` | Quarkus 3.35 + JDK 25 | 8085 | Streams Kafka events to the frontend, replays DLT events, proxies consumer controls |
-| `frontend` | React 19 + Vite 8 + shadcn/ui | 5173 | Demo dashboard: create transfers, trigger failures, watch live/DLT/DB confirmation |
+| Service               | Stack                         | Port | Responsibility                                                                               |
+| --------------------- | ----------------------------- | ---: | -------------------------------------------------------------------------------------------- |
+| `transfer-producer`   | Spring Boot 4 + JDK 25        | 8081 | Creates transfers and writes outbox events atomically                                        |
+| `transfer-consumer`   | Spring Boot 4 + JDK 25        | 8082 | Consumes `transfers.created`, persists `processed_transfers`, exposes demo control endpoints |
+| `message-ops-service` | Quarkus 3.35 + JDK 25         | 8085 | Streams Kafka events to the frontend, replays DLT events, proxies consumer controls          |
+| `frontend`            | React 19 + Vite 8 + shadcn/ui | 5173 | Demo dashboard: create transfers, trigger failures, watch live/DLT/DB confirmation           |
 
 ## Infrastructure
 
-| Container | Port | Responsibility |
-|---|---:|---|
-| `zookeeper` | 2181 | Kafka coordination |
-| `kafka` | 9092 external / 29092 internal | Message broker |
-| `debezium` | 8083 | Kafka Connect + Debezium Postgres connectors |
-| `kafka-ui` | 8080 | Kafka topic and consumer browser |
+| Container   |                           Port | Responsibility                               |
+| ----------- | -----------------------------: | -------------------------------------------- |
+| `zookeeper` |                           2181 | Kafka coordination                           |
+| `kafka`     | 9092 external / 29092 internal | Message broker                               |
+| `debezium`  |                           8083 | Kafka Connect + Debezium Postgres connectors |
+| `kafka-ui`  |                           8080 | Kafka topic and consumer browser             |
 
 ---
 
 ## Kafka Topics
 
-| Topic | Producer | Consumer |
-|---|---|---|
-| `transfers.created` | Debezium outbox connector, `message-ops-service` replay | `transfer-consumer`, `message-ops-service` |
-| `transfers.created.DLT` | `transfer-consumer` error handler | `transfer-consumer` DLT logger, `message-ops-service` |
-| `consumer.processed-transfers` | Debezium processed-transfers connector | `message-ops-service` |
+| Topic                          | Producer                                                | Consumer                                              |
+| ------------------------------ | ------------------------------------------------------- | ----------------------------------------------------- |
+| `transfers.created`            | Debezium outbox connector, `message-ops-service` replay | `transfer-consumer`, `message-ops-service`            |
+| `transfers.processed`          | `transfer-consumer`                                     | `transfer-producer`                                   |
+| `transfers.created.DLT`        | `transfer-consumer` error handler                       | `transfer-consumer` DLT logger, `message-ops-service` |
+| `consumer.processed-transfers` | Debezium processed-transfers connector                  | `message-ops-service`                                 |
 
 ---
 
@@ -85,6 +94,7 @@ Hibernate creates/updates:
 - `outbox_events`
 
 Debezium reads `outbox_events` and publishes the Protobuf payload to `transfers.created`.
+`transfer-producer` also consumes `transfers.processed` and marks the matching `transfers` row as `PROCESSED`.
 
 ### `transfer-consumer-db`
 
@@ -191,17 +201,17 @@ npm run dev
 
 ## Useful URLs
 
-| URL | Description |
-|---|---|
-| http://localhost:5173 | Frontend dashboard |
-| http://localhost:8080 | Kafka UI |
-| http://localhost:8081/transfers | Transfer producer API |
-| http://localhost:8082/consumer/status | Transfer consumer status |
-| http://localhost:8083/connectors | Debezium connectors |
-| http://localhost:8085/events/stream | SSE live transfer events |
-| http://localhost:8085/events/dlt | SSE DLT/replay events |
-| http://localhost:8085/events/processed | SSE consumer DB confirmations |
-| http://localhost:8085/consumer/status | Message ops proxy for consumer status |
+| URL                                    | Description                           |
+| -------------------------------------- | ------------------------------------- |
+| http://localhost:5173                  | Frontend dashboard                    |
+| http://localhost:8080                  | Kafka UI                              |
+| http://localhost:8081/transfers        | Transfer producer API                 |
+| http://localhost:8082/consumer/status  | Transfer consumer status              |
+| http://localhost:8083/connectors       | Debezium connectors                   |
+| http://localhost:8085/events/stream    | SSE live transfer events              |
+| http://localhost:8085/events/dlt       | SSE DLT/replay events                 |
+| http://localhost:8085/events/processed | SSE consumer DB confirmations         |
+| http://localhost:8085/consumer/status  | Message ops proxy for consumer status |
 
 ---
 
@@ -213,8 +223,10 @@ npm run dev
 2. `TransferService` inserts `transfers` and `outbox_events` in one transaction.
 3. Debezium reads `outbox_events` and publishes to `transfers.created`.
 4. `transfer-consumer` parses the Protobuf event and inserts `processed_transfers`.
-5. Debezium reads `processed_transfers` and publishes to `consumer.processed-transfers`.
-6. `message-ops-service` streams the DB confirmation to the frontend.
+5. `transfer-consumer` publishes a `transfers.processed` confirmation event.
+6. `transfer-producer` consumes `transfers.processed` and marks its own `transfers.status` as `PROCESSED`.
+7. Debezium reads `processed_transfers` and publishes to `consumer.processed-transfers`.
+8. `message-ops-service` streams the DB confirmation to the frontend.
 
 ### DLT + automatic recovery
 
@@ -255,16 +267,18 @@ POST /consumer/restore-processing
 ## Frontend Panels
 
 - **Top panel:** create transfer, enable/restore failure mode.
-- **Live Transfers:** events observed on `transfers.created`.
+- **Live Transfers:** events observed on `transfers.created` and the matching consumer DB transfer confirmation after successful processing.
 - **Dead Letter Topic / Replay:** events from `transfers.created.DLT`, replay state, and the matching consumer DB transfer confirmation.
+
+Transfer cards initially show the status from the original Kafka event. When the matching `processed_transfers` row arrives through SSE, the card status reflects the confirmed consumer DB status, for example `PROCESSED`.
 
 State meanings:
 
-| State | Meaning |
-|---|---|
-| `LIVE` | Event observed on the normal Kafka topic |
-| `DLT_PENDING` | Event is in the dead letter topic and waiting for replay |
-| `DLT_REPLAYED` | Event was republished to `transfers.created` |
+| State                   | Meaning                                                                   |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `LIVE`                  | Event observed on the normal Kafka topic                                  |
+| `DLT_PENDING`           | Event is in the dead letter topic and waiting for replay                  |
+| `DLT_REPLAYED`          | Event was republished to `transfers.created`                              |
 | `Consumer DB confirmed` | Matching `processed_transfers` row was inserted with the transfer details |
 
 ---
