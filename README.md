@@ -8,47 +8,40 @@ La idea central es simple: cuando se crea una transferencia, el sistema guarda l
 
 ## Architecture
 
-```text
-frontend
-  | POST /transfers
-  v
-transfer-producer (8081)
-  | same DB transaction
-  |-- transfers
-  `-- outbox_events
-        |
-        | Debezium connector: transfer-outbox-connector
-        v
-Kafka topic: transfers.created
-        |
-        v
-transfer-consumer (8082)
-  | success
-  v
-transfer-consumer-db.processed_transfers
-  | publish processing confirmation
-  v
-Kafka topic: transfers.processed
-  |
-  v
-transfer-producer updates transfers.status = PROCESSED
+```mermaid
+flowchart TD
+    frontend["frontend<br/>React dashboard"]
+    producer["transfer-producer<br/>Spring Boot :8081"]
+    producerDb[("transfer-producer-db<br/>transfers + outbox_events")]
+    outboxConnector["Debezium<br/>transfer-outbox-connector"]
+    createdTopic[["Kafka topic<br/>transfers.created"]]
+    consumer["transfer-consumer<br/>Spring Boot :8082"]
+    consumerDb[("transfer-consumer-db<br/>processed_transfers")]
+    processedTopic[["Kafka topic<br/>transfers.processed"]]
+    producerStatus["transfer-producer<br/>mark transfers.status = PROCESSED"]
+    processedConnector["Debezium<br/>processed-transfers-connector"]
+    processedChangesTopic[["Kafka topic<br/>consumer.processed-transfers"]]
+    messageOps["message-ops-service<br/>Quarkus :8085"]
+    dltTopic[["Kafka topic<br/>transfers.created.DLT"]]
+    replay["Automatic replay<br/>when consumer is healthy"]
 
-transfer-consumer-db.processed_transfers
-        |
-        | Debezium connector: processed-transfers-connector
-        v
-Kafka topic: consumer.processed-transfers
-        |
-        v
-message-ops-service (8085) -> SSE /events/processed -> frontend
+    frontend -->|"POST /transfers"| producer
+    producer -->|"same DB transaction"| producerDb
+    producerDb -->|"CDC outbox event"| outboxConnector
+    outboxConnector --> createdTopic
+    createdTopic -->|"normal processing"| consumer
+    consumer -->|"insert processed transfer"| consumerDb
+    consumer -->|"publish confirmation"| processedTopic
+    processedTopic --> producerStatus
+    consumerDb -->|"CDC database confirmation"| processedConnector
+    processedConnector --> processedChangesTopic
+    processedChangesTopic --> messageOps
+    messageOps -->|"SSE /events/processed"| frontend
 
-Failure path:
-
-transfers.created
-  -> transfer-consumer retries
-  -> transfers.created.DLT
-  -> message-ops-service
-  -> automatic replay to transfers.created when consumer is healthy
+    createdTopic -. "retries exhausted" .-> dltTopic
+    dltTopic -. "DLT event" .-> messageOps
+    messageOps -. "queue pending event" .-> replay
+    replay -. "republish original payload" .-> createdTopic
 ```
 
 ---
