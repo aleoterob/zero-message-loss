@@ -1,8 +1,8 @@
 # zero-message-loss
 
-Demo de **entrega garantizada de mensajes** para transferencias bancarias usando Transactional Outbox, Debezium CDC, Kafka, DLT, replay automatico y confirmacion en base de datos del consumer.
+Demo of **guaranteed message delivery** for banking transfers using Transactional Outbox, Debezium CDC, Kafka, DLT, automatic replay, and consumer database confirmation.
 
-La idea central es simple: cuando se crea una transferencia, el sistema guarda la transferencia y su evento en la misma transaccion de base de datos. Debezium lee el outbox desde el WAL de Neon y publica el evento en Kafka. Si el consumer falla, Spring Kafka envia el mensaje a un Dead Letter Topic. Luego `message-ops-service` hace replay automatico cuando el consumer vuelve a estar sano, y el frontend muestra en tiempo real cuando el evento fue finalmente persistido en `transfer-consumer-db.processed_transfers`.
+The core idea is simple: when a transfer is created, the system stores the transfer and its event in the same database transaction. Debezium reads the outbox from the Neon WAL and publishes the event to Kafka. If the consumer fails, Spring Kafka sends the message to a Dead Letter Topic. Then `message-ops-service` automatically replays it when the consumer is healthy again, and the frontend shows in real time when the event is finally persisted in `transfer-consumer-db.processed_transfers`.
 
 ---
 
