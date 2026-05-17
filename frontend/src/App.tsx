@@ -1,5 +1,3 @@
-import { Box } from "lucide-react"
-
 import { LeftPanel } from "@/components/layout/left-panel"
 import { RightPanel } from "@/components/layout/right-panel"
 import { TopPanel } from "@/components/layout/top-panel"
@@ -18,7 +16,12 @@ function App() {
         <div>
           <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">Zero Message Loss</p>
           <h1 className="m-0 flex items-center gap-3 text-3xl font-semibold leading-none md:text-4xl">
-            <Box className="size-8 shrink-0 translate-y-0.5 text-primary md:size-9" aria-hidden="true" />
+            <img
+              src="/apache-kafka-dark.svg"
+              alt=""
+              className="size-9 shrink-0 translate-y-0.5 md:size-10"
+              aria-hidden="true"
+            />
             <span>Banking transfer event monitor</span>
           </h1>
         </div>
