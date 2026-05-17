@@ -12,7 +12,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "processed_transfers")
 public class ProcessedTransfer {
-	private static final String PROCESSED_STATUS = "PROCESSED";
+	public static final String PROCESSED_STATUS = "PROCESSED";
 
 	@Id
 	@Column(name = "event_id", nullable = false, updatable = false)

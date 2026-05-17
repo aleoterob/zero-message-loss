@@ -19,8 +19,9 @@ class TransferConsumerTest {
 	@Test
 	void storesEventIdWhenProcessingNewTransferEvent() throws Exception {
 		InMemoryProcessedTransferRepository repository = new InMemoryProcessedTransferRepository();
+		RecordingTransferProcessedEventPublisher publisher = new RecordingTransferProcessedEventPublisher();
 		ConsumerControlService controlService = new ConsumerControlService();
-		TransferConsumer consumer = new TransferConsumer(repository, controlService);
+		TransferConsumer consumer = new TransferConsumer(repository, controlService, publisher);
 		UUID eventId = UUID.randomUUID();
 		UUID transferId = UUID.randomUUID();
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
@@ -38,6 +39,16 @@ class TransferConsumerTest {
 					assertThat(processedTransfer.getStatus()).isEqualTo("PROCESSED");
 					assertThat(processedTransfer.getProcessedAt()).isNotNull();
 				});
+		assertThat(publisher.published).singleElement()
+				.satisfies(processedEvent -> {
+					assertThat(processedEvent.getEventId()).isEqualTo(eventId.toString());
+					assertThat(processedEvent.getTransferId()).isEqualTo(transferId.toString());
+					assertThat(processedEvent.getFromAccount()).isEqualTo("ACC001");
+					assertThat(processedEvent.getToAccount()).isEqualTo("ACC002");
+					assertThat(processedEvent.getAmount()).isEqualTo("1500.00");
+					assertThat(processedEvent.getCurrency()).isEqualTo("ARS");
+					assertThat(processedEvent.getStatus()).isEqualTo("PROCESSED");
+				});
 		assertThat(acknowledgment.acknowledged).isTrue();
 	}
 
@@ -47,13 +58,15 @@ class TransferConsumerTest {
 		UUID eventId = UUID.randomUUID();
 		UUID transferId = UUID.randomUUID();
 		repository.save(ProcessedTransfer.create(transferEvent(eventId, transferId)));
+		RecordingTransferProcessedEventPublisher publisher = new RecordingTransferProcessedEventPublisher();
 		ConsumerControlService controlService = new ConsumerControlService();
-		TransferConsumer consumer = new TransferConsumer(repository, controlService);
+		TransferConsumer consumer = new TransferConsumer(repository, controlService, publisher);
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
 
 		consumer.consume(transferEvent(eventId, transferId).toByteArray(), acknowledgment);
 
 		assertThat(repository.saved).hasSize(1);
+		assertThat(publisher.published).isEmpty();
 		assertThat(acknowledgment.acknowledged).isTrue();
 	}
 
@@ -61,7 +74,10 @@ class TransferConsumerTest {
 	void decodesBase64PayloadProducedByDebeziumOutboxRouter() throws Exception {
 		InMemoryProcessedTransferRepository repository = new InMemoryProcessedTransferRepository();
 		ConsumerControlService controlService = new ConsumerControlService();
-		TransferConsumer consumer = new TransferConsumer(repository, controlService);
+		TransferConsumer consumer = new TransferConsumer(
+				repository,
+				controlService,
+				new RecordingTransferProcessedEventPublisher());
 		UUID eventId = UUID.randomUUID();
 		UUID transferId = UUID.randomUUID();
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
@@ -78,7 +94,10 @@ class TransferConsumerTest {
 	@Test
 	void throwsWhenPayloadCannotBeDeserializedSoKafkaCanRetryAndDlt() {
 		ConsumerControlService controlService = new ConsumerControlService();
-		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedTransferRepository(), controlService);
+		TransferConsumer consumer = new TransferConsumer(
+				new InMemoryProcessedTransferRepository(),
+				controlService,
+				new RecordingTransferProcessedEventPublisher());
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
 
 		org.junit.jupiter.api.Assertions.assertThrows(
@@ -91,7 +110,10 @@ class TransferConsumerTest {
 	void throwsWhenFailureModeIsEnabledSoKafkaCanRetryAndDlt() {
 		ConsumerControlService controlService = new ConsumerControlService();
 		controlService.enableFailProcessing();
-		TransferConsumer consumer = new TransferConsumer(new InMemoryProcessedTransferRepository(), controlService);
+		TransferConsumer consumer = new TransferConsumer(
+				new InMemoryProcessedTransferRepository(),
+				controlService,
+				new RecordingTransferProcessedEventPublisher());
 		RecordingAcknowledgment acknowledgment = new RecordingAcknowledgment();
 
 		org.junit.jupiter.api.Assertions.assertThrows(
@@ -125,6 +147,15 @@ class TransferConsumerTest {
 		public ProcessedTransfer save(ProcessedTransfer processedTransfer) {
 			saved.add(processedTransfer);
 			return processedTransfer;
+		}
+	}
+
+	private static final class RecordingTransferProcessedEventPublisher implements TransferProcessedEventPublisher {
+		private final List<TransferEvent> published = new ArrayList<>();
+
+		@Override
+		public void publish(TransferEvent event) {
+			published.add(event);
 		}
 	}
 

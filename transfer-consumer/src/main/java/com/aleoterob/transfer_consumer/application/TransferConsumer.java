@@ -18,11 +18,14 @@ public class TransferConsumer {
 
 	private final ProcessedTransferRepository processedTransferRepository;
 	private final ConsumerControlService consumerControlService;
+	private final TransferProcessedEventPublisher transferProcessedEventPublisher;
 
 	public TransferConsumer(ProcessedTransferRepository processedTransferRepository,
-			ConsumerControlService consumerControlService) {
+			ConsumerControlService consumerControlService,
+			TransferProcessedEventPublisher transferProcessedEventPublisher) {
 		this.processedTransferRepository = processedTransferRepository;
 		this.consumerControlService = consumerControlService;
+		this.transferProcessedEventPublisher = transferProcessedEventPublisher;
 	}
 
 	@KafkaListener(id = ConsumerControlService.TRANSFER_LISTENER_ID, topics = "transfers.created", groupId = "transfer-consumer-group")
@@ -48,6 +51,13 @@ public class TransferConsumer {
 				event.getCurrency());
 
 		processedTransferRepository.save(ProcessedTransfer.create(event));
+		transferProcessedEventPublisher.publish(toProcessedEvent(event));
 		acknowledgment.acknowledge();
+	}
+
+	private static TransferEvent toProcessedEvent(TransferEvent event) {
+		return event.toBuilder()
+				.setStatus(ProcessedTransfer.PROCESSED_STATUS)
+				.build();
 	}
 }
