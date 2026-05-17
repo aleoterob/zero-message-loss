@@ -23,7 +23,8 @@ import type { EventCardProps } from "@/types/transfer"
 export function EventCard({ event, processedTransfer }: EventCardProps) {
   const deliveryState = event.deliveryState ?? (event.isDlt ? "DLT_PENDING" : "LIVE")
   const replayAttempts = event.replayAttempts ?? 0
-  const shouldShowConsumerDb = deliveryState === "DLT_REPLAYED" && processedTransfer !== undefined
+  const displayedStatus = processedTransfer?.status ?? event.status
+  const shouldShowConsumerDb = deliveryState !== "DLT_PENDING" && processedTransfer !== undefined
 
   return (
     <Card className="transition-shadow hover:shadow-md" size="sm">
@@ -66,7 +67,7 @@ export function EventCard({ event, processedTransfer }: EventCardProps) {
         <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
           <MetadataField label="Transfer ID" value={event.transferId} />
           <MetadataField label="Event ID" value={event.eventId} />
-          <MetadataField label="Status" value={event.status} />
+          <MetadataField label="Status" value={displayedStatus} />
           <MetadataField label="Source" value={event.isDlt ? "Dead letter topic" : "Live topic"} />
         </div>
         {shouldShowConsumerDb ? <ConsumerTransferDbCard processedTransfer={processedTransfer} /> : null}

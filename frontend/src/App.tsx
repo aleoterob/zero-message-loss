@@ -33,7 +33,7 @@ function App() {
       <TopPanel />
 
       <section className="mx-auto mt-4 grid w-full max-w-[1180px] grid-cols-1 gap-4 md:grid-cols-2">
-        <LeftPanel events={liveEvents} />
+        <LeftPanel events={liveEvents} processedTransfers={processedTransfers} />
         <RightPanel events={dltEvents} processedTransfers={processedTransfers} />
       </section>
     </main>
