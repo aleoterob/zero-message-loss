@@ -45,6 +45,7 @@ public class DltReplayService {
         }
 
         ConsumerStatusDto status = consumerControlClient.status();
+        // NOTE: Replay only starts after the consumer reports that processing has been restored.
         if (!status.replayReady()) {
             return;
         }
@@ -63,6 +64,7 @@ public class DltReplayService {
         OutgoingKafkaRecordMetadata<String> metadata = OutgoingKafkaRecordMetadata.<String>builder()
                 .withKey(event.key())
                 .build();
+        // NOTE: Republishes the original message to transfers.created, leaving normal consumer processing in charge again.
         replayEmitter.send(Message.of(event.payload()).addMetadata(metadata));
 
         TransferEventDto replayedDto = new TransferEventDto(

@@ -22,6 +22,7 @@ public class TransferDltConsumer {
 
     @Incoming("transfers-dlt")
     public CompletionStage<Void> consume(Message<byte[]> message) {
+        // NOTE: Capture failed transfer events from DLT so the dashboard can show them and the replay service can recover them.
         String key = message.getMetadata(IncomingKafkaRecordMetadata.class)
                 .map(IncomingKafkaRecordMetadata::getKey)
                 .map(Object::toString)

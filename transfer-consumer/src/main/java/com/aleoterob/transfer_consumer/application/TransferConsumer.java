@@ -31,6 +31,7 @@ public class TransferConsumer {
 	@KafkaListener(id = ConsumerControlService.TRANSFER_LISTENER_ID, topics = "transfers.created", groupId = "transfer-consumer-group")
 	@Transactional
 	public void consume(byte[] message, Acknowledgment acknowledgment) throws InvalidProtocolBufferException {
+		// NOTE: Simulates a downstream outage so Spring Kafka can retry and route the event to DLT.
 		if (consumerControlService.isFailProcessing()) {
 			throw new IllegalStateException("Transfer consumer failure mode is enabled");
 		}
@@ -38,6 +39,7 @@ public class TransferConsumer {
 		TransferEvent event = TransferEventPayload.parse(message);
 		UUID eventId = UUID.fromString(event.getEventId());
 
+		// NOTE: event_id is the idempotency key that prevents duplicate transfer processing.
 		if (processedTransferRepository.existsById(eventId)) {
 			log.warn("Duplicate event ignored: {}", eventId);
 			acknowledgment.acknowledge();
@@ -50,6 +52,7 @@ public class TransferConsumer {
 				event.getAmount(),
 				event.getCurrency());
 
+		// NOTE: Persist the consumer-side result, then publish the confirmation that lets the producer mark the transfer as processed.
 		processedTransferRepository.save(ProcessedTransfer.create(event));
 		transferProcessedEventPublisher.publish(toProcessedEvent(event));
 		acknowledgment.acknowledge();

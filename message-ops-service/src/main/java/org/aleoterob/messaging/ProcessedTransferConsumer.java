@@ -25,6 +25,7 @@ public class ProcessedTransferConsumer {
     @Incoming("processed-transfers")
     public CompletionStage<Void> consume(Message<String> message) {
         try {
+            // NOTE: Debezium emits processed_transfers changes here, which confirms the consumer database write to the frontend.
             ProcessedTransferDto transfer = processedTransferMapper.toDto(message.getPayload());
             eventStreamBus.publishProcessed(transfer);
             log.info("Published processed transfer {} to SSE stream", transfer.eventId());

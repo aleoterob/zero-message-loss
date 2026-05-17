@@ -15,6 +15,7 @@ public class KafkaConfig {
 
 	@Bean
 	public DefaultErrorHandler errorHandler(KafkaOperations<String, byte[]> kafkaOperations) {
+		// NOTE: After retries are exhausted, failed transfer events are published to transfers.created.DLT.
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
 				kafkaOperations,
 				(record, exception) -> new TopicPartition(record.topic() + ".DLT", record.partition()));
