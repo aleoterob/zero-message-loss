@@ -276,6 +276,33 @@ State meanings:
 
 ---
 
+## AI Agent Widget
+
+The frontend embeds a AI **Banking Agent** that helps users explore the demo, understand the zero-message-loss architecture, and query live consumer-side data.
+
+### How it is integrated
+
+The widget is loaded as an external script from [Aura](https://aura-ag.vercel.app/) and mounted from the React app:
+
+- `frontend/src/features/agent-widget/agent-widget.tsx` renders a headless `AgentWidget` component.
+- `frontend/src/features/agent-widget/hooks/use-agent-widget.ts` injects the Aura embed script, controls visibility, and tears down the widget on logout or login routes.
+- `frontend/src/App.tsx` enables the widget globally with `<AgentWidget enabled />`.
+
+This keeps the chat UI outside the main bundle while still allowing route-aware lifecycle management inside the dashboard.
+
+### What the agent knows
+
+The Aura agent configured for this demo has access to:
+
+- **Neon database `transfer-consumer-db`:** it can inspect and answer questions about the consumer-side data model, especially the `processed_transfers` table that confirms successful processing.
+- **The full zero-message-loss architecture:** the agent's knowledge base is powered by a **RAG (Retrieval-Augmented Generation) pipeline** and includes this repository's main `README.md`, so it can explain services, Kafka topics, Debezium connectors, DLT replay flow, and how the frontend panels map to runtime events.
+
+### Built with Aura
+
+The AI agent behind the widget was created with **Aura**, an AI Agents platform built by Alejandro Otero using **Next.js**, **Vercel AI SDK**, and **Supabase**. Aura is available at [https://aura-ag.vercel.app/](https://aura-ag.vercel.app/).
+
+---
+
 ## Tests And Checks
 
 Backend:
