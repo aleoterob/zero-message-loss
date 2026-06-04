@@ -1,4 +1,4 @@
-package com.aleoterob.transfer_producer.domain;
+package com.aleoterob.transfer_producer.domain.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

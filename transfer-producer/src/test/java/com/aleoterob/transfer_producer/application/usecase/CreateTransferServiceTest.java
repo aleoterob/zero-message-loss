@@ -1,13 +1,13 @@
-package com.aleoterob.transfer_producer.application;
+package com.aleoterob.transfer_producer.application.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.aleoterob.transfer.proto.TransferEvent;
-import com.aleoterob.transfer_producer.api.dto.CreateTransferRequest;
-import com.aleoterob.transfer_producer.domain.OutboxEvent;
-import com.aleoterob.transfer_producer.domain.Transfer;
-import com.aleoterob.transfer_producer.infrastructure.OutboxEventRepository;
-import com.aleoterob.transfer_producer.infrastructure.TransferRepository;
+import com.aleoterob.transfer_producer.application.command.CreateTransferCommand;
+import com.aleoterob.transfer_producer.application.ports.output.OutboxEventRepository;
+import com.aleoterob.transfer_producer.application.ports.output.TransferEventSerializer;
+import com.aleoterob.transfer_producer.application.ports.output.TransferRepository;
+import com.aleoterob.transfer_producer.domain.model.OutboxEvent;
+import com.aleoterob.transfer_producer.domain.model.Transfer;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,15 +15,19 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-class TransferServiceTest {
+class CreateTransferServiceTest {
 
 	@Test
-	void createsTransferAndOutboxEventWithProtobufPayload() throws Exception {
+	void createsTransferAndOutboxEventPayload() {
 		InMemoryTransferRepository transferRepository = new InMemoryTransferRepository();
 		InMemoryOutboxEventRepository outboxEventRepository = new InMemoryOutboxEventRepository();
-		TransferService service = new TransferService(transferRepository, outboxEventRepository);
+		StubTransferEventSerializer transferEventSerializer = new StubTransferEventSerializer();
+		CreateTransferService service = new CreateTransferService(
+				transferRepository,
+				outboxEventRepository,
+				transferEventSerializer);
 
-		Transfer transfer = service.create(new CreateTransferRequest(
+		Transfer transfer = service.create(new CreateTransferCommand(
 				"ACC001",
 				"ACC002",
 				new BigDecimal("1500.00"),
@@ -38,16 +42,8 @@ class TransferServiceTest {
 		assertThat(outboxEvent.getAggregateId()).isEqualTo(transfer.getId());
 		assertThat(outboxEvent.getAggregateType()).isEqualTo("Transfer");
 		assertThat(outboxEvent.getEventType()).isEqualTo("TransferCreated");
-
-		TransferEvent event = TransferEvent.parseFrom(outboxEvent.getPayload());
-		assertThat(event.getEventId()).isNotBlank();
-		assertThat(event.getTransferId()).isEqualTo(transfer.getId().toString());
-		assertThat(event.getFromAccount()).isEqualTo("ACC001");
-		assertThat(event.getToAccount()).isEqualTo("ACC002");
-		assertThat(event.getAmount()).isEqualTo("1500.00");
-		assertThat(event.getCurrency()).isEqualTo("ARS");
-		assertThat(event.getStatus()).isEqualTo("PENDING");
-		assertThat(event.getCreatedAt()).isPositive();
+		assertThat(outboxEvent.getPayload()).containsExactly(1, 2, 3);
+		assertThat(transferEventSerializer.serialized).containsExactly(transfer);
 	}
 
 	private static final class InMemoryTransferRepository implements TransferRepository {
@@ -74,6 +70,16 @@ class TransferServiceTest {
 		public OutboxEvent save(OutboxEvent outboxEvent) {
 			saved.add(outboxEvent);
 			return outboxEvent;
+		}
+	}
+
+	private static final class StubTransferEventSerializer implements TransferEventSerializer {
+		private final List<Transfer> serialized = new ArrayList<>();
+
+		@Override
+		public byte[] serializeCreated(Transfer transfer) {
+			serialized.add(transfer);
+			return new byte[] { 1, 2, 3 };
 		}
 	}
 }

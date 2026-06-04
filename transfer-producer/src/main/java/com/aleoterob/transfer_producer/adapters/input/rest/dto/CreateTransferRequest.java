@@ -1,4 +1,4 @@
-package com.aleoterob.transfer_producer.api.dto;
+package com.aleoterob.transfer_producer.adapters.input.rest.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
