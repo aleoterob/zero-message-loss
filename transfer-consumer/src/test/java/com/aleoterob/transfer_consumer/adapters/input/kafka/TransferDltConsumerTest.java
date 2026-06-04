@@ -1,4 +1,4 @@
-package com.aleoterob.transfer_consumer.application;
+package com.aleoterob.transfer_consumer.adapters.input.kafka;
 
 import com.aleoterob.transfer.proto.TransferEvent;
 import java.util.Base64;

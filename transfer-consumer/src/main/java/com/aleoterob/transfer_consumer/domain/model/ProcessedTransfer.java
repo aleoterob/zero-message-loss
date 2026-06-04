@@ -1,6 +1,6 @@
-package com.aleoterob.transfer_consumer.domain;
+package com.aleoterob.transfer_consumer.domain.model;
 
-import com.aleoterob.transfer.proto.TransferEvent;
+import com.aleoterob.transfer_consumer.application.model.TransferEventPayload;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -42,14 +42,14 @@ public class ProcessedTransfer {
 	protected ProcessedTransfer() {
 	}
 
-	public static ProcessedTransfer create(TransferEvent event) {
+	public static ProcessedTransfer create(TransferEventPayload event) {
 		ProcessedTransfer processedTransfer = new ProcessedTransfer();
-		processedTransfer.eventId = UUID.fromString(event.getEventId());
-		processedTransfer.transferId = UUID.fromString(event.getTransferId());
-		processedTransfer.fromAccount = event.getFromAccount();
-		processedTransfer.toAccount = event.getToAccount();
-		processedTransfer.amount = new BigDecimal(event.getAmount());
-		processedTransfer.currency = event.getCurrency();
+		processedTransfer.eventId = event.eventId();
+		processedTransfer.transferId = event.transferId();
+		processedTransfer.fromAccount = event.fromAccount();
+		processedTransfer.toAccount = event.toAccount();
+		processedTransfer.amount = event.amount();
+		processedTransfer.currency = event.currency();
 		processedTransfer.status = PROCESSED_STATUS;
 		processedTransfer.processedAt = Instant.now();
 		return processedTransfer;
