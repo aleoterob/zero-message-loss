@@ -1,9 +1,9 @@
-package org.aleoterob.messaging;
+package org.aleoterob.adapters.input.messaging;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import jakarta.enterprise.context.ApplicationScoped;
-import org.aleoterob.EventStreamBus;
-import org.aleoterob.TransferEventMapper;
+import org.aleoterob.application.mapper.TransferEventMapper;
+import org.aleoterob.application.usecase.EventStreamBus;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

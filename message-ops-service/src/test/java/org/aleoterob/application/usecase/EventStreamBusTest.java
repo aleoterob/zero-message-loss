@@ -1,4 +1,4 @@
-package org.aleoterob;
+package org.aleoterob.application.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.aleoterob.application.model.TransferEventDto;
 import org.junit.jupiter.api.Test;
 
 class EventStreamBusTest {

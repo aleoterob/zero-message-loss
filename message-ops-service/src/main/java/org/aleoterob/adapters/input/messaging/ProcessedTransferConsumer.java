@@ -1,10 +1,10 @@
-package org.aleoterob.messaging;
+package org.aleoterob.adapters.input.messaging;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.concurrent.CompletionStage;
-import org.aleoterob.EventStreamBus;
-import org.aleoterob.ProcessedTransferDto;
-import org.aleoterob.ProcessedTransferMapper;
+import org.aleoterob.application.mapper.ProcessedTransferMapper;
+import org.aleoterob.application.model.ProcessedTransferDto;
+import org.aleoterob.application.usecase.EventStreamBus;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.eclipse.microprofile.reactive.messaging.Message;
 import org.slf4j.Logger;
@@ -26,7 +26,12 @@ public class ProcessedTransferConsumer {
     public CompletionStage<Void> consume(Message<String> message) {
         try {
             // NOTE: Debezium emits processed_transfers changes here, which confirms the consumer database write to the frontend.
-            ProcessedTransferDto transfer = processedTransferMapper.toDto(message.getPayload());
+            ProcessedTransferDto transfer = processedTransferMapper.toOptionalDto(message.getPayload())
+                    .orElse(null);
+            if (transfer == null) {
+                log.debug("Ignored processed transfer message without an after payload");
+                return message.ack();
+            }
             eventStreamBus.publishProcessed(transfer);
             log.info("Published processed transfer {} to SSE stream", transfer.eventId());
             return message.ack();

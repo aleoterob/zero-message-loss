@@ -1,4 +1,4 @@
-package org.aleoterob;
+package org.aleoterob.application.mapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.aleoterob.transfer.proto.TransferEvent;
 import java.util.Base64;
 import java.util.UUID;
+import org.aleoterob.application.model.TransferEventDto;
 import org.junit.jupiter.api.Test;
 
 class TransferEventMapperTest {

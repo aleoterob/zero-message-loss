@@ -1,8 +1,8 @@
-package org.aleoterob;
+package org.aleoterob.application.model;
 
 import java.time.Instant;
 
-record DltReplayEvent(
+public record DltReplayEvent(
         String eventId,
         String key,
         byte[] payload,
@@ -10,11 +10,11 @@ record DltReplayEvent(
         int replayAttempts,
         boolean replayed,
         Instant lastAttemptAt) {
-    DltReplayEvent withAttempt() {
+    public DltReplayEvent withAttempt() {
         return new DltReplayEvent(eventId, key, payload, dto, replayAttempts + 1, replayed, Instant.now());
     }
 
-    DltReplayEvent replayed(TransferEventDto replayedDto) {
+    public DltReplayEvent replayed(TransferEventDto replayedDto) {
         return new DltReplayEvent(eventId, key, payload, replayedDto, replayAttempts, true, Instant.now());
     }
 }

@@ -1,4 +1,4 @@
-package org.aleoterob;
+package org.aleoterob.application.model;
 
 public record TransferEventDto(
         String eventId,

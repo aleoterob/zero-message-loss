@@ -1,4 +1,4 @@
-package org.aleoterob;
+package org.aleoterob.application.model;
 
 public record ConsumerStatusDto(boolean failProcessing) {
     public boolean replayReady() {

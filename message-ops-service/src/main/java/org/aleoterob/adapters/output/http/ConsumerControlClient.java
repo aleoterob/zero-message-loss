@@ -1,4 +1,4 @@
-package org.aleoterob;
+package org.aleoterob.adapters.output.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -7,6 +7,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import org.aleoterob.application.model.ConsumerStatusDto;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped

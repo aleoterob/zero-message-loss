@@ -1,10 +1,12 @@
-package org.aleoterob;
+package org.aleoterob.application.usecase;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.subscription.MultiEmitter;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.aleoterob.application.model.ProcessedTransferDto;
+import org.aleoterob.application.model.TransferEventDto;
 
 @ApplicationScoped
 public class EventStreamBus {

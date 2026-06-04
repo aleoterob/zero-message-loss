@@ -1,4 +1,4 @@
-package org.aleoterob;
+package org.aleoterob.application.mapper;
 
 import com.aleoterob.transfer.proto.TransferEvent;
 import com.google.protobuf.InvalidProtocolBufferException;

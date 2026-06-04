@@ -1,8 +1,10 @@
-package org.aleoterob;
+package org.aleoterob.adapters.input.rest;
 
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import org.aleoterob.adapters.output.http.ConsumerControlClient;
+import org.aleoterob.application.model.ConsumerStatusDto;
 
 @Path("/consumer")
 public class ConsumerControlResource {

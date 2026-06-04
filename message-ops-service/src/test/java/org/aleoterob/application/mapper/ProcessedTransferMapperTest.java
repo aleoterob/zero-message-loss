@@ -1,8 +1,10 @@
-package org.aleoterob;
+package org.aleoterob.application.mapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.aleoterob.application.model.ProcessedTransferDto;
 import org.junit.jupiter.api.Test;
 
 class ProcessedTransferMapperTest {
@@ -69,5 +71,22 @@ class ProcessedTransferMapperTest {
         assertEquals("", dto.currency());
         assertEquals("", dto.status());
         assertEquals("2026-05-15T16:00:00Z", dto.processedAt());
+    }
+
+    @Test
+    void ignoresDebeziumEnvelopeWithoutAfterPayload() {
+        ProcessedTransferMapper mapper = new ProcessedTransferMapper(new ObjectMapper());
+        String envelope = """
+                {
+                  "before": {
+                    "event_id": "0e7e2d4d-f44f-4a6d-8b74-4f1d4d5b3f8d",
+                    "transfer_id": "2f48b775-5bb2-4f09-a728-dc9ac7c5aa12"
+                  },
+                  "after": null,
+                  "op": "d"
+                }
+                """;
+
+        assertTrue(mapper.toOptionalDto(envelope).isEmpty());
     }
 }

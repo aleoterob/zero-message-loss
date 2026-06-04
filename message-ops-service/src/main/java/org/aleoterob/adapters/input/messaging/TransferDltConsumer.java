@@ -1,10 +1,9 @@
-package org.aleoterob.messaging;
+package org.aleoterob.adapters.input.messaging;
 
 import io.smallrye.reactive.messaging.kafka.api.IncomingKafkaRecordMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Optional;
 import java.util.concurrent.CompletionStage;
-import org.aleoterob.DltReplayService;
+import org.aleoterob.application.usecase.DltReplayService;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.eclipse.microprofile.reactive.messaging.Message;
 import org.slf4j.Logger;

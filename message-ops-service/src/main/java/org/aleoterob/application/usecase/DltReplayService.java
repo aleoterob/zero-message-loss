@@ -1,4 +1,4 @@
-package org.aleoterob;
+package org.aleoterob.application.usecase;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.quarkus.scheduler.Scheduled;
@@ -10,6 +10,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.eclipse.microprofile.reactive.messaging.Channel;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.eclipse.microprofile.reactive.messaging.Message;
+import org.aleoterob.adapters.output.http.ConsumerControlClient;
+import org.aleoterob.application.mapper.TransferEventMapper;
+import org.aleoterob.application.model.ConsumerStatusDto;
+import org.aleoterob.application.model.DltReplayEvent;
+import org.aleoterob.application.model.TransferEventDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
