@@ -55,6 +55,50 @@ graph TD;
 | `message-ops-service` | Quarkus 3.35 + JDK 25         | 8085 | Streams Kafka events to the frontend, replays DLT events, proxies consumer controls          |
 | `frontend`            | React 19 + Vite 8 + shadcn/ui | 5173 | Demo dashboard: create transfers, trigger failures, watch live/DLT/DB confirmation           |
 
+---
+
+## Hexagonal Architecture
+
+All backend microservices follow a hexagonal architecture style. The domain and application layers contain the business rules and use cases, while REST, Kafka, persistence, HTTP clients, Protobuf serialization, and SSE concerns live at the edges as adapters.
+
+### `transfer-producer`
+
+`transfer-producer` keeps transfer creation and producer-side status updates in the application layer:
+
+- `domain.model` contains the `Transfer` and `OutboxEvent` models.
+- `application.ports.input` exposes use cases such as creating transfers and marking transfers as processed.
+- `application.ports.output` defines persistence and event serialization contracts.
+- `application.usecase` implements the transactional outbox flow: save the transfer and its outbox event in the same database transaction.
+- `adapters.input.rest` receives `POST /transfers` requests and maps HTTP DTOs into application commands.
+- `adapters.input.kafka` consumes `transfers.processed` confirmations.
+- `adapters.output.persistence` provides Spring Data JPA repositories.
+- `adapters.output.serialization` builds the Protobuf transfer event payload.
+
+### `transfer-consumer`
+
+`transfer-consumer` separates Kafka transport details from transfer processing:
+
+- `domain.model` contains the persisted `ProcessedTransfer` model.
+- `application.model` contains the application-level `TransferEventPayload`, independent from Protobuf.
+- `application.ports.input` exposes processing and consumer-control use cases.
+- `application.ports.output` defines persistence and processed-event publishing contracts.
+- `application.usecase` handles idempotent transfer processing, failure-mode control, and publishing processed confirmations.
+- `adapters.input.kafka` parses incoming Protobuf/Base64 Kafka payloads and delegates to the processing use case.
+- `adapters.input.rest` exposes the demo control endpoints.
+- `adapters.output.persistence` stores processed transfers with JPA.
+- `adapters.output.messaging` publishes `transfers.processed` events to Kafka.
+
+### `message-ops-service`
+
+`message-ops-service` acts as the operational boundary for the demo dashboard:
+
+- `application.model` contains DTOs used by the event streams and consumer-control proxy.
+- `application.mapper` maps Debezium and Protobuf payloads into dashboard-facing models.
+- `application.usecase` owns SSE stream fan-out and DLT replay orchestration.
+- `adapters.input.messaging` consumes Kafka topics for live transfers, DLT events, and processed-transfer confirmations.
+- `adapters.input.rest` exposes SSE streams and consumer-control proxy endpoints.
+- `adapters.output.http` calls `transfer-consumer` control endpoints.
+
 ## Infrastructure
 
 | Container   |                           Port | Responsibility                               |
@@ -213,7 +257,7 @@ npm run dev
 ### Normal transfer
 
 1. The frontend sends `POST /transfers` to `transfer-producer`.
-2. `TransferService` inserts `transfers` and `outbox_events` in one transaction.
+2. `CreateTransferService` inserts `transfers` and `outbox_events` in one transaction.
 3. Debezium reads `outbox_events` and publishes to `transfers.created`.
 4. `transfer-consumer` parses the Protobuf event and inserts `processed_transfers`.
 5. `transfer-consumer` publishes a `transfers.processed` confirmation event.
