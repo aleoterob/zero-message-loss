@@ -19,15 +19,19 @@ export function EventPanel({
   processedTransfers = EMPTY_PROCESSED_TRANSFERS,
   tone,
 }: EventPanelProps) {
+  const isEmpty = events.length === 0
+
   return (
-    <Card className="grid min-h-[360px] grid-rows-[auto_1fr] ring-primary/60">
+    <Card
+      className={`grid grid-rows-[auto_1fr] ring-primary/60 ${isEmpty ? "min-h-[280px]" : "min-h-[360px]"}`}
+    >
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        {events.length === 0 ? (
-          <div className="flex min-h-full items-center rounded-lg border border-dashed border-border p-6 text-center text-muted-foreground">
+        {isEmpty ? (
+          <div className="flex min-h-full items-center rounded-lg border border-dashed border-border p-4 text-center text-muted-foreground">
             {emptyText}
           </div>
         ) : (

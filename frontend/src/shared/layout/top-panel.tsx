@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -8,24 +8,24 @@ import {
   SendHorizontal,
   Siren,
   Trash2,
-} from "lucide-react"
+} from 'lucide-react';
 
-import { useCreateTransfer } from "@/features/transfers/hooks/use-create-transfer"
-import { useConsumerControl } from "@/features/transfers/hooks/use-consumer-control"
+import { useCreateTransfer } from '@/features/transfers/hooks/use-create-transfer';
+import { useConsumerControl } from '@/features/transfers/hooks/use-consumer-control';
 import {
   getConsumerStatusDescription,
   getConsumerStatusLabel,
   getConsumerStatusTone,
-} from "@/features/transfers/helpers/consumer-control-display"
-import { dummyAccounts } from "@/features/transfers/constants/dummy-accounts"
-import { Button } from "@/shared/components/ui/button"
+} from '@/features/transfers/helpers/consumer-control-display';
+import { dummyAccounts } from '@/features/transfers/constants/dummy-accounts';
+import { Button } from '@/shared/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/shared/components/ui/card"
+} from '@/shared/components/ui/card';
 import {
   Command,
   CommandEmpty,
@@ -33,23 +33,26 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/shared/components/ui/command"
-import { Input } from "@/shared/components/ui/input"
-import { Label } from "@/shared/components/ui/label"
+} from '@/shared/components/ui/command';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/shared/components/ui/popover"
-import { cn } from "@/shared/lib/utils"
+} from '@/shared/components/ui/popover';
+import { cn } from '@/shared/lib/utils';
 import type {
   AccountComboboxProps,
   ConsumerControlsProps,
   SubmitNoticeProps,
   TopPanelProps,
-} from "@/features/transfers/types/top-panel"
+} from '@/features/transfers/types/top-panel';
 
-export function TopPanel({ accounts = dummyAccounts, onClearPanels }: TopPanelProps) {
+export function TopPanel({
+  accounts = dummyAccounts,
+  onClearPanels,
+}: TopPanelProps) {
   const {
     amount,
     createTransfer,
@@ -60,15 +63,16 @@ export function TopPanel({ accounts = dummyAccounts, onClearPanels }: TopPanelPr
     submitMessage,
     submitState,
     toAccount,
-  } = useCreateTransfer()
-  const consumerControl = useConsumerControl()
+  } = useCreateTransfer();
+  const consumerControl = useConsumerControl();
 
   return (
-    <Card className="mx-auto w-full max-w-[1180px] ring-primary/60">
-      <CardHeader>
+    <Card className="mx-auto w-full max-w-295 ring-primary/60" size="sm">
+      <CardHeader className="gap-0.5">
         <CardTitle>Create Transfer</CardTitle>
         <CardDescription>
-          Submit a banking transfer and watch the outbox event arrive through Kafka.
+          Submit a banking transfer and watch the outbox event arrive through
+          Kafka.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -103,10 +107,14 @@ export function TopPanel({ accounts = dummyAccounts, onClearPanels }: TopPanelPr
           </div>
           <Button
             className="min-w-[150px] w-full hover:opacity-85 md:w-auto"
-            disabled={submitState === "loading" || fromAccount === toAccount || Number(amount) <= 0}
+            disabled={
+              submitState === 'loading' ||
+              fromAccount === toAccount ||
+              Number(amount) <= 0
+            }
             type="submit"
           >
-            {submitState === "loading" ? (
+            {submitState === 'loading' ? (
               <Loader2 data-icon="inline-start" />
             ) : (
               <SendHorizontal data-icon="inline-start" />
@@ -125,12 +133,18 @@ export function TopPanel({ accounts = dummyAccounts, onClearPanels }: TopPanelPr
         />
       </CardContent>
     </Card>
-  )
+  );
 }
 
-function AccountCombobox({ accounts, id, label, value, onChange }: AccountComboboxProps) {
-  const [open, setOpen] = useState(false)
-  const selectedAccount = accounts.find((account) => account.id === value)
+function AccountCombobox({
+  accounts,
+  id,
+  label,
+  value,
+  onChange,
+}: AccountComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const selectedAccount = accounts.find((account) => account.id === value);
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
@@ -144,7 +158,9 @@ function AccountCombobox({ accounts, id, label, value, onChange }: AccountCombob
             type="button"
             variant="outline"
           >
-            <span className="min-w-0 truncate">{selectedAccount?.label ?? "Select account"}</span>
+            <span className="min-w-0 truncate">
+              {selectedAccount?.label ?? 'Select account'}
+            </span>
             <ChevronsUpDown data-icon="inline-end" />
           </Button>
         </PopoverTrigger>
@@ -159,8 +175,8 @@ function AccountCombobox({ accounts, id, label, value, onChange }: AccountCombob
                     data-checked={account.id === value}
                     key={account.id}
                     onSelect={() => {
-                      onChange(account.id)
-                      setOpen(false)
+                      onChange(account.id);
+                      setOpen(false);
                     }}
                     value={account.label}
                   >
@@ -173,25 +189,29 @@ function AccountCombobox({ accounts, id, label, value, onChange }: AccountCombob
         </PopoverContent>
       </Popover>
     </div>
-  )
+  );
 }
 
 function SubmitNotice({ state, message }: SubmitNoticeProps) {
-  if (state === "idle" || state === "loading") {
-    return null
+  if (state === 'idle' || state === 'loading') {
+    return null;
   }
 
   return (
     <p
       className={cn(
-        "mt-4 flex items-center gap-2 text-sm",
-        state === "success" ? "text-accent-foreground" : "text-destructive",
+        'mt-4 flex items-center gap-2 text-sm',
+        state === 'success' ? 'text-accent-foreground' : 'text-destructive',
       )}
     >
-      {state === "success" ? <CheckCircle2 data-icon="inline-start" /> : <AlertCircle data-icon="inline-start" />}
+      {state === 'success' ? (
+        <CheckCircle2 data-icon="inline-start" />
+      ) : (
+        <AlertCircle data-icon="inline-start" />
+      )}
       {message}
     </p>
-  )
+  );
 }
 
 function ConsumerControls({
@@ -202,22 +222,24 @@ function ConsumerControls({
   onFailProcessing,
   onRestoreProcessing,
 }: ConsumerControlsProps) {
-  const isLoading = actionState === "loading"
-  const statusTone = getConsumerStatusTone(status)
-  const statusLabel = getConsumerStatusLabel(status)
-  const statusDescription = getConsumerStatusDescription(status)
+  const isLoading = actionState === 'loading';
+  const statusTone = getConsumerStatusTone(status);
+  const statusLabel = getConsumerStatusLabel(status);
+  const statusDescription = getConsumerStatusDescription(status);
 
   return (
-    <div className="mt-4 grid grid-cols-1 items-center gap-3.5 border-t border-border pt-4 md:grid-cols-[minmax(180px,0.8fr)_minmax(0,1.8fr)]">
+    <div className="mt-3 grid grid-cols-1 items-center gap-3 border-t border-border pt-3 md:grid-cols-[minmax(180px,0.8fr)_minmax(0,1.8fr)]">
       <div
         className={cn(
-          "flex min-w-0 flex-col gap-0.5 rounded-md border p-3",
-          statusTone === "danger" && "border-destructive bg-destructive/10",
-          statusTone === "ready" && "border-border bg-accent",
+          'flex min-w-0 flex-col gap-0.5 rounded-md border p-2.5',
+          statusTone === 'danger' && 'border-destructive bg-destructive/10',
+          statusTone === 'ready' && 'border-border bg-accent',
         )}
       >
         <span className="text-sm font-bold">{statusLabel}</span>
-        <small className="text-xs text-muted-foreground">{statusDescription}</small>
+        <small className="text-xs text-muted-foreground">
+          {statusDescription}
+        </small>
       </div>
       <div className="flex flex-wrap gap-2 md:justify-end">
         <Button
@@ -246,13 +268,13 @@ function ConsumerControls({
       {statusMessage ? (
         <p
           className={cn(
-            "col-span-full m-0 text-sm text-muted-foreground",
-            actionState === "error" && "text-destructive",
+            'col-span-full m-0 text-sm text-muted-foreground',
+            actionState === 'error' && 'text-destructive',
           )}
         >
           {statusMessage}
         </p>
       ) : null}
     </div>
-  )
+  );
 }
