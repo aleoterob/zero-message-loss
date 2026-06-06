@@ -34,13 +34,13 @@ function App() {
             className="flex flex-wrap gap-2 md:justify-end"
             aria-label="Service ports"
           >
-            <span className="rounded-full border border-primary px-2.5 py-1.5 text-xs text-muted-foreground">
+            <span className="inline-flex h-7 transform-gpu items-center rounded-full border border-primary/60 px-2.5 text-xs leading-none text-muted-foreground">
               Producer 8081
             </span>
-            <span className="rounded-full border border-primary px-2.5 py-1.5 text-xs text-muted-foreground">
+            <span className="inline-flex h-7 transform-gpu items-center rounded-full border border-primary/60 px-2.5 text-xs leading-none text-muted-foreground">
               Message Ops 8085
             </span>
-            <span className="rounded-full border border-primary px-2.5 py-1.5 text-xs text-muted-foreground">
+            <span className="inline-flex h-7 transform-gpu items-center rounded-full border border-primary/60 px-2.5 text-xs leading-none text-muted-foreground">
               Frontend 5173
             </span>
           </div>

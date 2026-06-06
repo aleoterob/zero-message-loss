@@ -63,7 +63,7 @@ export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
   const consumerControl = useConsumerControl()
 
   return (
-    <Card className="mx-auto w-full max-w-[1180px] ring-primary">
+    <Card className="mx-auto w-full max-w-[1180px] ring-primary/60">
       <CardHeader>
         <CardTitle>Create Transfer</CardTitle>
         <CardDescription>
@@ -101,7 +101,7 @@ export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
             />
           </div>
           <Button
-            className="min-w-[150px] w-full md:w-auto"
+            className="min-w-[150px] w-full hover:opacity-85 md:w-auto"
             disabled={submitState === "loading" || fromAccount === toAccount || Number(amount) <= 0}
             type="submit"
           >
