@@ -22,9 +22,9 @@ function App() {
             </p>
             <h1 className="m-0 flex items-center gap-3 text-3xl font-semibold leading-none md:text-4xl">
               <img
-                src="/apache-kafka-dark.svg"
+                src="/react_dark.svg"
                 alt=""
-                className="size-9 shrink-0 translate-y-0.5 md:size-10"
+                className="size-9 shrink-0 animate-spin translate-y-0.5 [animation-duration:18s] md:size-10"
                 aria-hidden="true"
               />
               <span>Banking transfer event monitor</span>
