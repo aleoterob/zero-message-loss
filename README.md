@@ -309,6 +309,7 @@ The frontend is organized around `shared` infrastructure plus domain-oriented `f
 - `frontend/src/shared/config` contains app-wide configuration such as environment-derived URLs.
 - `frontend/src/shared/lib` contains global utilities.
 - `frontend/src/shared/layout` contains dashboard composition components such as the top, live, and DLT panels.
+- `frontend/src/shared/layout/top-panel` contains the top panel shell and its local subcomponents for the transfer form, account selector, submit notice, and consumer controls.
 - `frontend/src/features/agent-widget` contains the Aura agent widget component, hook, and types.
 - `frontend/src/features/events` contains event stream rendering and event-specific helpers, hooks, and types.
 - `frontend/src/features/transfers` contains transfer creation, consumer controls, processed-transfer confirmations, constants, helpers, hooks, and types.
@@ -331,7 +332,7 @@ Only the folders that are useful for that feature are present. Feature roots sho
 
 The dashboard panels are composed from `frontend/src/shared/layout`, while domain behavior stays in the corresponding feature folders:
 
-- `frontend/src/shared/layout/top-panel.tsx` composes transfer creation and consumer failure controls from `features/transfers`.
+- `frontend/src/shared/layout/top-panel/top-panel.tsx` composes transfer creation and consumer failure controls from `features/transfers`.
 - `frontend/src/shared/layout/left-panel.tsx` renders the live transfer stream using the events feature.
 - `frontend/src/shared/layout/right-panel.tsx` renders DLT and replay events using the events feature.
 - `frontend/src/features/events/components/event-panel.tsx` and `event-card.tsx` render the reusable event list and cards.

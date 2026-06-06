@@ -4,7 +4,7 @@ import { useProcessedTransferStream } from '@/features/transfers/hooks/use-proce
 import { env } from '@/shared/config/env';
 import { LeftPanel } from '@/shared/layout/left-panel';
 import { RightPanel } from '@/shared/layout/right-panel';
-import { TopPanel } from '@/shared/layout/top-panel';
+import { TopPanel } from '@/shared/layout/top-panel/top-panel';
 
 function App() {
   const liveEventStream = useEventStream(env.eventsStreamUrl);

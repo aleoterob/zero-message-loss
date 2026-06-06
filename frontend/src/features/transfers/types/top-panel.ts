@@ -1,3 +1,5 @@
+import type { FormEvent } from "react"
+
 import type { AccountOption } from "@/features/transfers/types/transfer"
 
 export type SubmitState = "idle" | "loading" | "success" | "error"
@@ -41,6 +43,18 @@ export type TransferFormAction =
   | { type: "submitStarted" }
   | { type: "submitSucceeded"; message: string }
   | { type: "submitFailed"; message: string }
+
+export interface TransferFormControls extends TransferFormState {
+  createTransfer: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  setAmount: (value: string) => void
+  setFromAccount: (value: string) => void
+  setToAccount: (value: string) => void
+}
+
+export interface TransferFormProps {
+  accounts: AccountOption[]
+  transferForm: TransferFormControls
+}
 
 export interface ConsumerControlsProps {
   actionState: ConsumerActionState
