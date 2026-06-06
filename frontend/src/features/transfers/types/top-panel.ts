@@ -4,6 +4,7 @@ export type SubmitState = "idle" | "loading" | "success" | "error"
 
 export interface TopPanelProps {
   accounts?: AccountOption[]
+  onClearPanels: () => void
 }
 
 export interface AccountComboboxProps {
@@ -47,4 +48,5 @@ export interface ConsumerControlsProps {
   statusMessage: string
   onFailProcessing: () => void
   onRestoreProcessing: () => void
+  onClearPanels: () => void
 }

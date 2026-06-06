@@ -19,5 +19,8 @@ export function useEventStream(url: string) {
     return () => source.close()
   }, [url])
 
-  return events
+  return {
+    clearEvents: () => setEvents([]),
+    events,
+  }
 }

@@ -7,6 +7,7 @@ import {
   RotateCcw,
   SendHorizontal,
   Siren,
+  Trash2,
 } from "lucide-react"
 
 import { useCreateTransfer } from "@/features/transfers/hooks/use-create-transfer"
@@ -48,7 +49,7 @@ import type {
   TopPanelProps,
 } from "@/features/transfers/types/top-panel"
 
-export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
+export function TopPanel({ accounts = dummyAccounts, onClearPanels }: TopPanelProps) {
   const {
     amount,
     createTransfer,
@@ -118,6 +119,7 @@ export function TopPanel({ accounts = dummyAccounts }: TopPanelProps) {
           actionState={consumerControl.actionState}
           status={consumerControl.status}
           statusMessage={consumerControl.statusMessage}
+          onClearPanels={onClearPanels}
           onFailProcessing={consumerControl.failProcessing}
           onRestoreProcessing={consumerControl.restoreProcessing}
         />
@@ -196,6 +198,7 @@ function ConsumerControls({
   actionState,
   status,
   statusMessage,
+  onClearPanels,
   onFailProcessing,
   onRestoreProcessing,
 }: ConsumerControlsProps) {
@@ -234,6 +237,10 @@ function ConsumerControls({
         >
           <RotateCcw data-icon="inline-start" />
           Restore
+        </Button>
+        <Button onClick={onClearPanels} type="button" variant="primaryOutline">
+          <Trash2 data-icon="inline-start" />
+          Clear panels
         </Button>
       </div>
       {statusMessage ? (

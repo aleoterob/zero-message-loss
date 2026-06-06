@@ -19,5 +19,8 @@ export function useProcessedTransferStream(url: string) {
     return () => source.close()
   }, [url])
 
-  return transfers
+  return {
+    clearTransfers: () => setTransfers([]),
+    transfers,
+  }
 }

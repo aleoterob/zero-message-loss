@@ -7,9 +7,17 @@ import { RightPanel } from '@/shared/layout/right-panel';
 import { TopPanel } from '@/shared/layout/top-panel';
 
 function App() {
-  const liveEvents = useEventStream(env.eventsStreamUrl);
-  const dltEvents = useEventStream(env.eventsDltUrl);
-  const processedTransfers = useProcessedTransferStream(env.eventsProcessedUrl);
+  const liveEventStream = useEventStream(env.eventsStreamUrl);
+  const dltEventStream = useEventStream(env.eventsDltUrl);
+  const processedTransferStream = useProcessedTransferStream(
+    env.eventsProcessedUrl,
+  );
+
+  function clearPanels() {
+    liveEventStream.clearEvents();
+    dltEventStream.clearEvents();
+    processedTransferStream.clearTransfers();
+  }
 
   return (
     <div className="min-h-screen w-full">
@@ -46,16 +54,16 @@ function App() {
           </div>
         </section>
 
-        <TopPanel />
+        <TopPanel onClearPanels={clearPanels} />
 
         <section className="mx-auto mt-4 grid w-full max-w-295 grid-cols-1 gap-4 md:grid-cols-2">
           <LeftPanel
-            events={liveEvents}
-            processedTransfers={processedTransfers}
+            events={liveEventStream.events}
+            processedTransfers={processedTransferStream.transfers}
           />
           <RightPanel
-            events={dltEvents}
-            processedTransfers={processedTransfers}
+            events={dltEventStream.events}
+            processedTransfers={processedTransferStream.transfers}
           />
         </section>
       </main>
