@@ -1,23 +1,25 @@
-import { LeftPanel } from "@/components/layout/left-panel"
-import { RightPanel } from "@/components/layout/right-panel"
-import { TopPanel } from "@/components/layout/top-panel"
-import { env } from "@/config/env"
-import { AgentWidget } from "@/features/agent-widget/agent-widget"
-import { useEventStream } from "@/hooks/use-event-stream"
-import { useProcessedTransferStream } from "@/hooks/use-processed-transfer-stream"
+import { AgentWidget } from '@/features/agent-widget/components/agent-widget';
+import { useEventStream } from '@/features/events/hooks/use-event-stream';
+import { useProcessedTransferStream } from '@/features/transfers/hooks/use-processed-transfer-stream';
+import { env } from '@/shared/config/env';
+import { LeftPanel } from '@/shared/layout/left-panel';
+import { RightPanel } from '@/shared/layout/right-panel';
+import { TopPanel } from '@/shared/layout/top-panel';
 
 function App() {
-  const liveEvents = useEventStream(env.eventsStreamUrl)
-  const dltEvents = useEventStream(env.eventsDltUrl)
-  const processedTransfers = useProcessedTransferStream(env.eventsProcessedUrl)
+  const liveEvents = useEventStream(env.eventsStreamUrl);
+  const dltEvents = useEventStream(env.eventsDltUrl);
+  const processedTransfers = useProcessedTransferStream(env.eventsProcessedUrl);
 
   return (
     <div className="min-h-screen w-full">
       <AgentWidget enabled />
       <main className="grid min-h-screen grid-rows-[auto_auto_auto] p-5 md:p-6">
-        <section className="mx-auto mb-6 flex w-full max-w-[1180px] flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
+        <section className="mx-auto mb-6 flex w-full max-w-295 flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">Zero Message Loss</p>
+            <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">
+              Zero Message Loss
+            </p>
             <h1 className="m-0 flex items-center gap-3 text-3xl font-semibold leading-none md:text-4xl">
               <img
                 src="/apache-kafka-dark.svg"
@@ -28,7 +30,10 @@ function App() {
               <span>Banking transfer event monitor</span>
             </h1>
           </div>
-          <div className="flex flex-wrap gap-2 md:justify-end" aria-label="Service ports">
+          <div
+            className="flex flex-wrap gap-2 md:justify-end"
+            aria-label="Service ports"
+          >
             <span className="rounded-full border border-primary px-2.5 py-1.5 text-xs text-muted-foreground">
               Producer 8081
             </span>
@@ -43,13 +48,19 @@ function App() {
 
         <TopPanel />
 
-        <section className="mx-auto mt-4 grid w-full max-w-[1180px] grid-cols-1 gap-4 md:grid-cols-2">
-          <LeftPanel events={liveEvents} processedTransfers={processedTransfers} />
-          <RightPanel events={dltEvents} processedTransfers={processedTransfers} />
+        <section className="mx-auto mt-4 grid w-full max-w-295 grid-cols-1 gap-4 md:grid-cols-2">
+          <LeftPanel
+            events={liveEvents}
+            processedTransfers={processedTransfers}
+          />
+          <RightPanel
+            events={dltEvents}
+            processedTransfers={processedTransfers}
+          />
         </section>
       </main>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

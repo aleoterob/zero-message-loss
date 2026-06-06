@@ -301,9 +301,45 @@ POST /consumer/restore-processing
 
 ---
 
+## Frontend Architecture
+
+The frontend is organized around `shared` infrastructure plus domain-oriented `features`:
+
+- `frontend/src/shared/components` contains reusable UI building blocks, including shadcn/ui components.
+- `frontend/src/shared/config` contains app-wide configuration such as environment-derived URLs.
+- `frontend/src/shared/lib` contains global utilities.
+- `frontend/src/shared/layout` contains dashboard composition components such as the top, live, and DLT panels.
+- `frontend/src/features/agent-widget` contains the Aura agent widget component, hook, and types.
+- `frontend/src/features/events` contains event stream rendering and event-specific helpers, hooks, and types.
+- `frontend/src/features/transfers` contains transfer creation, consumer controls, processed-transfer confirmations, constants, helpers, hooks, and types.
+
+Each feature keeps implementation files inside purpose-specific folders:
+
+```text
+components/
+constants/
+helpers/
+hooks/
+types/
+```
+
+Only the folders that are useful for that feature are present. Feature roots should not contain loose `.ts` or `.tsx` files.
+
+---
+
 ## Frontend Panels
 
-- **Top panel:** create transfer, enable/restore failure mode.
+The dashboard panels are composed from `frontend/src/shared/layout`, while domain behavior stays in the corresponding feature folders:
+
+- `frontend/src/shared/layout/top-panel.tsx` composes transfer creation and consumer failure controls from `features/transfers`.
+- `frontend/src/shared/layout/left-panel.tsx` renders the live transfer stream using the events feature.
+- `frontend/src/shared/layout/right-panel.tsx` renders DLT and replay events using the events feature.
+- `frontend/src/features/events/components/event-panel.tsx` and `event-card.tsx` render the reusable event list and cards.
+- `frontend/src/features/transfers/components/consumer-transfer-db-card.tsx` renders the consumer DB confirmation shown inside event cards.
+
+Panel behavior:
+
+- **Top panel:** create transfers and enable/restore consumer failure mode.
 - **Live Transfers:** events observed on `transfers.created` and the matching consumer DB transfer confirmation after successful processing.
 - **Dead Letter Topic / Replay:** events from `transfers.created.DLT`, replay state, and the matching consumer DB transfer confirmation.
 
@@ -328,7 +364,7 @@ The frontend embeds a AI **Banking Agent** that helps users explore the demo, un
 
 The widget is loaded as an external script from [Aura](https://aura-ag.vercel.app/) and mounted from the React app:
 
-- `frontend/src/features/agent-widget/agent-widget.tsx` renders a headless `AgentWidget` component.
+- `frontend/src/features/agent-widget/components/agent-widget.tsx` renders a headless `AgentWidget` component.
 - `frontend/src/features/agent-widget/hooks/use-agent-widget.ts` injects the Aura embed script, controls visibility, and tears down the widget on logout or login routes.
 - `frontend/src/App.tsx` enables the widget globally with `<AgentWidget enabled />`.
 
