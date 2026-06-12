@@ -4,4 +4,5 @@ export const env = {
   eventsDltUrl: import.meta.env.VITE_EVENTS_DLT_URL,
   eventsProcessedUrl: import.meta.env.VITE_EVENTS_PROCESSED_URL,
   consumerControlUrl: import.meta.env.VITE_CONSUMER_CONTROL_URL,
+  agentWidgetScriptSrc: import.meta.env.VITE_AGENT_WIDGET_SCRIPT_SRC,
 } as const

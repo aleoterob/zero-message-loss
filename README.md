@@ -229,9 +229,15 @@ Both tasks should be `RUNNING`.
 
 ### 5. Start services
 
-`message-ops-service` connects to Neon to store durable DLT replay state. In committed config it reads `MESSAGE_OPS_NEON_URL`, `MESSAGE_OPS_NEON_USER`, and `MESSAGE_OPS_NEON_PASSWORD`, falling back to `NEON_URL`, `NEON_USER`, and `NEON_PASSWORD`.
+The backend services use ignored local profile files for Neon credentials. Create them from the committed examples before starting the services:
 
-For local development, keep credentials in the ignored file `message-ops-service/src/main/resources/application-local.properties`. Use `message-ops-service/application-local.properties.example` as the shape of the file and run Quarkus with the `local` profile.
+```bash
+cp transfer-producer/src/main/resources/application-local.yaml.example transfer-producer/src/main/resources/application-local.yaml
+cp transfer-consumer/src/main/resources/application-local.yaml.example transfer-consumer/src/main/resources/application-local.yaml
+cp message-ops-service/application-local.properties.example message-ops-service/src/main/resources/application-local.properties
+```
+
+Fill each local file with the matching Neon database credentials. `message-ops-service` connects to Neon to store durable DLT replay state. In committed config it reads `MESSAGE_OPS_NEON_URL`, `MESSAGE_OPS_NEON_USER`, and `MESSAGE_OPS_NEON_PASSWORD`, falling back to `NEON_URL`, `NEON_USER`, and `NEON_PASSWORD`.
 
 ```bash
 cd transfer-producer
@@ -247,6 +253,15 @@ cd transfer-consumer
 cd message-ops-service
 ./mvnw quarkus:dev "-Dquarkus.profile=local"
 ```
+
+The frontend reads its API, SSE, consumer-control, and Aura widget script URLs from `frontend/.env`. Create it from the committed `frontend/.env.example` before starting Vite:
+
+```bash
+cd frontend
+cp .env.example .env
+```
+
+Fill `VITE_AGENT_WIDGET_SCRIPT_SRC` with the Aura widget script URL for the Banking Agent.
 
 ```bash
 cd frontend
@@ -396,6 +411,7 @@ The widget is loaded as an external script from [Aura](https://aura-ag.vercel.ap
 
 - `frontend/src/features/agent-widget/components/agent-widget.tsx` renders a headless `AgentWidget` component.
 - `frontend/src/features/agent-widget/hooks/use-agent-widget.ts` injects the Aura embed script, controls visibility, and tears down the widget on logout or login routes.
+- `frontend/src/shared/config/env.ts` reads `VITE_AGENT_WIDGET_SCRIPT_SRC` from `frontend/.env` so the Aura script URL stays out of the source code.
 - `frontend/src/App.tsx` enables the widget only after consumer control status is available.
 
 The agent widget is intentionally hidden when `message-ops-service` cannot confirm `transfer-consumer` health. If the consumer is down and the dashboard reports an error such as `Consumer control returned 500`, the widget is torn down instead of being shown and the top panel displays a warning that all services must be running to show the Banking Agent. This is a safety measure so the agent is only accessible when the full demo system is running.
@@ -470,3 +486,7 @@ but Maven works from the terminal, run:
 
 - `Java: Clean Java Language Server Workspace`
 - `Maven: Reload All Maven Projects`
+
+---
+
+Note: To obtain the Neon database credentials and the agent widget script source, request them from aleoterob@gmail.com.

@@ -1,11 +1,10 @@
 import { useEffect } from 'react';
 
 import type { AgentWidgetProps } from '@/features/agent-widget/types/agent-widget';
+import { env } from '@/shared/config/env';
 
 const AGENT_WIDGET_LOGOUT_EVENT = 'zero-message-loss:agent-widget-logout';
 const AGENT_WIDGET_SCRIPT_ID = 'zero-message-loss-agent-widget-script';
-const AGENT_WIDGET_SCRIPT_SRC =
-  'https://aura-ag.vercel.app/widget.js?id=wgt_BJK_iOgXlrGRmqEihLz25mYIZUYQIkZJ';
 
 function normalizePathname(pathname: string): string {
   if (pathname.length > 1 && pathname.endsWith('/')) {
@@ -71,7 +70,7 @@ export function useAgentWidget({ enabled }: AgentWidgetProps): void {
 
     const widgetScript = document.createElement('script');
     widgetScript.id = AGENT_WIDGET_SCRIPT_ID;
-    widgetScript.src = AGENT_WIDGET_SCRIPT_SRC;
+    widgetScript.src = env.agentWidgetScriptSrc;
     widgetScript.async = true;
     document.head.appendChild(widgetScript);
 

@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://your-producer-neon-pooler-host/neondb?sslmode=require&channel_binding=require
+    username: your_producer_neon_user
+    password: your_producer_neon_password
