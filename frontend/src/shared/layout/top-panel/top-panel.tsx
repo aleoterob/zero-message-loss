@@ -1,5 +1,4 @@
 import { useCreateTransfer } from "@/features/transfers/hooks/use-create-transfer"
-import { useConsumerControl } from "@/features/transfers/hooks/use-consumer-control"
 import { dummyAccounts } from "@/features/transfers/constants/dummy-accounts"
 import {
   Card,
@@ -13,9 +12,8 @@ import { SubmitNotice } from "@/shared/layout/top-panel/submit-notice"
 import { TransferForm } from "@/shared/layout/top-panel/transfer-form"
 import type { TopPanelProps } from "@/features/transfers/types/top-panel"
 
-export function TopPanel({ accounts = dummyAccounts, onClearPanels }: TopPanelProps) {
+export function TopPanel({ accounts = dummyAccounts, consumerControl, onClearPanels }: TopPanelProps) {
   const transferForm = useCreateTransfer()
-  const consumerControl = useConsumerControl()
 
   return (
     <Card className="mx-auto w-full max-w-295 ring-primary/60" size="sm">
@@ -30,6 +28,7 @@ export function TopPanel({ accounts = dummyAccounts, onClearPanels }: TopPanelPr
         <SubmitNotice state={transferForm.submitState} message={transferForm.submitMessage} />
         <ConsumerControls
           actionState={consumerControl.actionState}
+          isAvailable={consumerControl.isAvailable}
           status={consumerControl.status}
           statusMessage={consumerControl.statusMessage}
           onClearPanels={onClearPanels}

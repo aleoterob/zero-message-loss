@@ -396,7 +396,9 @@ The widget is loaded as an external script from [Aura](https://aura-ag.vercel.ap
 
 - `frontend/src/features/agent-widget/components/agent-widget.tsx` renders a headless `AgentWidget` component.
 - `frontend/src/features/agent-widget/hooks/use-agent-widget.ts` injects the Aura embed script, controls visibility, and tears down the widget on logout or login routes.
-- `frontend/src/App.tsx` enables the widget globally with `<AgentWidget enabled />`.
+- `frontend/src/App.tsx` enables the widget only after consumer control status is available.
+
+The agent widget is intentionally hidden when `message-ops-service` cannot confirm `transfer-consumer` health. If the consumer is down and the dashboard reports an error such as `Consumer control returned 500`, the widget is torn down instead of being shown and the top panel displays a warning that all services must be running to show the Banking Agent. This is a safety measure so the agent is only accessible when the full demo system is running.
 
 This keeps the chat UI outside the main bundle while still allowing route-aware lifecycle management inside the dashboard.
 

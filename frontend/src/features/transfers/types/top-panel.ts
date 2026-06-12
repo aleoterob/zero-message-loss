@@ -6,6 +6,7 @@ export type SubmitState = "idle" | "loading" | "success" | "error"
 
 export interface TopPanelProps {
   accounts?: AccountOption[]
+  consumerControl: ConsumerControlControls
   onClearPanels: () => void
 }
 
@@ -26,6 +27,15 @@ export type ConsumerActionState = "idle" | "loading" | "error"
 
 export interface ConsumerStatus {
   failProcessing: boolean
+}
+
+export interface ConsumerControlControls {
+  actionState: ConsumerActionState
+  failProcessing: () => void
+  isAvailable: boolean
+  restoreProcessing: () => void
+  status: ConsumerStatus | null
+  statusMessage: string
 }
 
 export interface TransferFormState {
@@ -58,6 +68,7 @@ export interface TransferFormProps {
 
 export interface ConsumerControlsProps {
   actionState: ConsumerActionState
+  isAvailable: boolean
   status: ConsumerStatus | null
   statusMessage: string
   onFailProcessing: () => void

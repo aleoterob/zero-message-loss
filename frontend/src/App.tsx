@@ -1,5 +1,6 @@
 import { AgentWidget } from '@/features/agent-widget/components/agent-widget';
 import { useEventStream } from '@/features/events/hooks/use-event-stream';
+import { useConsumerControl } from '@/features/transfers/hooks/use-consumer-control';
 import { useProcessedTransferStream } from '@/features/transfers/hooks/use-processed-transfer-stream';
 import { env } from '@/shared/config/env';
 import { LeftPanel } from '@/shared/layout/left-panel';
@@ -9,6 +10,7 @@ import { TopPanel } from '@/shared/layout/top-panel/top-panel';
 function App() {
   const liveEventStream = useEventStream(env.eventsStreamUrl);
   const dltEventStream = useEventStream(env.eventsDltUrl);
+  const consumerControl = useConsumerControl();
   const processedTransferStream = useProcessedTransferStream(
     env.eventsProcessedUrl,
   );
@@ -21,7 +23,7 @@ function App() {
 
   return (
     <div className="min-h-screen w-full">
-      <AgentWidget enabled />
+      <AgentWidget enabled={consumerControl.isAvailable} />
       <main className="grid min-h-screen grid-rows-[auto_auto_auto] p-5 md:p-6">
         <section className="mx-auto mb-6 flex w-full max-w-295 flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
           <div>
@@ -54,7 +56,10 @@ function App() {
           </div>
         </section>
 
-        <TopPanel onClearPanels={clearPanels} />
+        <TopPanel
+          consumerControl={consumerControl}
+          onClearPanels={clearPanels}
+        />
 
         <section className="mx-auto mt-4 grid w-full max-w-295 grid-cols-1 gap-4 md:grid-cols-2">
           <LeftPanel

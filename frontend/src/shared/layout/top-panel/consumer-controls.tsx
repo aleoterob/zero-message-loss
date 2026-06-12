@@ -11,6 +11,7 @@ import type { ConsumerControlsProps } from "@/features/transfers/types/top-panel
 
 export function ConsumerControls({
   actionState,
+  isAvailable,
   status,
   statusMessage,
   onClearPanels,
@@ -21,6 +22,7 @@ export function ConsumerControls({
   const statusTone = getConsumerStatusTone(status)
   const statusLabel = getConsumerStatusLabel(status)
   const statusDescription = getConsumerStatusDescription(status)
+  const shouldShowAgentUnavailable = actionState === "error" && !isAvailable
 
   return (
     <div className="mt-3 grid grid-cols-1 items-center gap-3 border-t border-border pt-3 md:grid-cols-[minmax(180px,0.8fr)_minmax(0,1.8fr)]">
@@ -66,6 +68,11 @@ export function ConsumerControls({
           )}
         >
           {statusMessage}
+        </p>
+      ) : null}
+      {shouldShowAgentUnavailable ? (
+        <p className="col-span-full m-0 text-sm font-medium text-destructive">
+          Banking Agent unavailable. All services must be running to show the Banking Agent.
         </p>
       ) : null}
     </div>
