@@ -1,8 +1,8 @@
 # zero-message-loss
 
-Demo of **guaranteed message delivery** for banking transfers using Transactional Outbox, Debezium CDC, Kafka, DLT, automatic replay, and consumer database confirmation.
+Demo of **guaranteed message delivery within the configured Kafka retention window** for banking transfers using Transactional Outbox, Debezium CDC, Kafka, DLT, durable automatic replay, and consumer database confirmation.
 
-The core idea is simple: when a transfer is created, the system stores the transfer and its event in the same database transaction. Debezium reads the outbox from the Neon WAL and publishes the event to Kafka. If the consumer fails, Spring Kafka sends the message to a Dead Letter Topic. Then `message-ops-service` automatically replays it when the consumer is healthy again, and the frontend shows in real time when the event is finally persisted in `transfer-consumer-db.processed_transfers`.
+The core idea is simple: when a transfer is created, the system stores the transfer and its event in the same database transaction. Debezium reads the outbox from the Neon WAL and publishes the event to Kafka. If the consumer fails during processing, Spring Kafka sends the message to a Dead Letter Topic. Then `message-ops-service` persists the replay state in `transfer-consumer-db.dlt_replay_events`, automatically replays the original payload when the consumer is healthy again, and the frontend shows in real time when the event is finally persisted in `transfer-consumer-db.processed_transfers`.
 
 ---
 
@@ -16,14 +16,14 @@ graph TD;
     outboxConnector[Debezium transfer-outbox-connector];
     createdTopic[Kafka topic transfers.created];
     consumer[transfer-consumer Spring Boot 8082];
-    consumerDb[transfer-consumer-db processed_transfers];
+    consumerDb[transfer-consumer-db processed_transfers and dlt_replay_events];
     processedTopic[Kafka topic transfers.processed];
     producerStatus[transfer-producer marks transfers.status PROCESSED];
     processedConnector[Debezium processed-transfers-connector];
     processedChangesTopic[Kafka topic consumer.processed-transfers];
     messageOps[message-ops-service Quarkus 8085];
     dltTopic[Kafka topic transfers.created.DLT];
-    replay[Automatic replay when consumer is healthy];
+    replay[Durable automatic replay when consumer is healthy];
 
     frontend --> producer;
     producer --> producerDb;
@@ -40,6 +40,7 @@ graph TD;
 
     createdTopic -.-> dltTopic;
     dltTopic -.-> messageOps;
+    messageOps -.-> consumerDb;
     messageOps -.-> replay;
     replay -.-> createdTopic;
 ```
@@ -52,7 +53,7 @@ graph TD;
 | --------------------- | ----------------------------- | ---: | -------------------------------------------------------------------------------------------- |
 | `transfer-producer`   | Spring Boot 4 + JDK 25        | 8081 | Creates transfers and writes outbox events atomically                                        |
 | `transfer-consumer`   | Spring Boot 4 + JDK 25        | 8082 | Consumes `transfers.created`, persists `processed_transfers`, exposes demo control endpoints |
-| `message-ops-service` | Quarkus 3.35 + JDK 25         | 8085 | Streams Kafka events to the frontend, replays DLT events, proxies consumer controls          |
+| `message-ops-service` | Quarkus 3.35 + JDK 25         | 8085 | Streams Kafka events to the frontend, persists/replays DLT events, proxies consumer controls |
 | `frontend`            | React 19 + Vite 8 + shadcn/ui | 5173 | Demo dashboard: create transfers, trigger failures, watch live/DLT/DB confirmation           |
 
 ---
@@ -94,10 +95,11 @@ All backend microservices follow a hexagonal architecture style. The domain and 
 
 - `application.model` contains DTOs used by the event streams and consumer-control proxy.
 - `application.mapper` maps Debezium and Protobuf payloads into dashboard-facing models.
-- `application.usecase` owns SSE stream fan-out and DLT replay orchestration.
+- `application.usecase` owns SSE stream fan-out and durable DLT replay orchestration.
 - `adapters.input.messaging` consumes Kafka topics for live transfers, DLT events, and processed-transfer confirmations.
 - `adapters.input.rest` exposes SSE streams and consumer-control proxy endpoints.
 - `adapters.output.http` calls `transfer-consumer` control endpoints.
+- `adapters.output.persistence` stores DLT replay state in Postgres so pending recovery survives `message-ops-service` restarts.
 
 ## Infrastructure
 
@@ -140,6 +142,12 @@ Hibernate creates/updates:
 - `processed_transfers`
 
 Debezium reads `processed_transfers` and publishes database confirmations to `consumer.processed-transfers`.
+
+`message-ops-service` uses the same Neon project for operational replay state:
+
+- `dlt_replay_events`
+
+Flyway creates `dlt_replay_events` with the original DLT payload, replay state, replay attempts, and timestamps for pending, replayed, and confirmed events. This table is not part of the Debezium publication; it is internal recovery state for `message-ops-service`.
 
 ---
 
@@ -213,6 +221,8 @@ Both tasks should be `RUNNING`.
 
 ### 5. Start services
 
+`message-ops-service` connects to Neon to store durable DLT replay state. By default it reuses `NEON_URL`, `NEON_USER`, and `NEON_PASSWORD`; you can override them with `MESSAGE_OPS_NEON_URL`, `MESSAGE_OPS_NEON_USER`, and `MESSAGE_OPS_NEON_PASSWORD`.
+
 ```bash
 cd transfer-producer
 ./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"
@@ -271,11 +281,20 @@ npm run dev
 2. Create a transfer.
 3. `transfer-consumer` throws during processing.
 4. Spring Kafka retries and sends the message to `transfers.created.DLT`.
-5. `message-ops-service` shows the event as `DLT_PENDING`.
-6. Restore processing from the frontend.
-7. `message-ops-service` replays the original payload to `transfers.created`.
-8. The card changes to `DLT_REPLAYED`.
-9. When `processed_transfers` is written in `transfer-consumer-db`, the frontend shows `Consumer DB confirmed`.
+5. `message-ops-service` stores the original payload and replay metadata in `dlt_replay_events`.
+6. `message-ops-service` shows the event as `DLT_PENDING`.
+7. Restore processing from the frontend.
+8. `message-ops-service` reads pending replay state from Postgres and republishes the original payload to `transfers.created`.
+9. The card changes to `DLT_REPLAYED`.
+10. When `processed_transfers` is written in `transfer-consumer-db`, `message-ops-service` marks the replay event as `CONFIRMED` and the frontend shows `Consumer DB confirmed`.
+
+### Consumer downtime and delivery guarantees
+
+If `transfer-consumer` is completely down, it does not consume `transfers.created`, so messages usually do not move to the DLT. They remain pending in `transfers.created` until Kafka retention removes them. When `transfer-consumer` starts again, Kafka delivers the uncommitted records from the consumer group's last committed offset.
+
+If `transfer-consumer` is running but fails during processing, Spring Kafka sends the exhausted record to `transfers.created.DLT`. `message-ops-service` consumes that DLT record, persists it in `dlt_replay_events`, and can replay it after restarts as long as the record was captured before the restart. The original DLT record also remains in Kafka until topic retention removes it.
+
+This means the application-level replay state is durable, but delivery for a consumer that is down for days or longer is still bounded by Kafka topic retention. To truthfully claim recovery after an indefinite outage, configure `transfers.created` and `transfers.created.DLT` with indefinite retention or a retention window longer than the maximum expected outage. The current local `docker-compose.yml` does not set explicit retention, so Kafka uses broker defaults.
 
 ---
 

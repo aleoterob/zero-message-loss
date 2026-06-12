@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.util.concurrent.CompletionStage;
 import org.aleoterob.application.mapper.ProcessedTransferMapper;
 import org.aleoterob.application.model.ProcessedTransferDto;
+import org.aleoterob.application.usecase.DltReplayService;
 import org.aleoterob.application.usecase.EventStreamBus;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.eclipse.microprofile.reactive.messaging.Message;
@@ -16,10 +17,15 @@ public class ProcessedTransferConsumer {
 
     private final EventStreamBus eventStreamBus;
     private final ProcessedTransferMapper processedTransferMapper;
+    private final DltReplayService dltReplayService;
 
-    public ProcessedTransferConsumer(EventStreamBus eventStreamBus, ProcessedTransferMapper processedTransferMapper) {
+    public ProcessedTransferConsumer(
+            EventStreamBus eventStreamBus,
+            ProcessedTransferMapper processedTransferMapper,
+            DltReplayService dltReplayService) {
         this.eventStreamBus = eventStreamBus;
         this.processedTransferMapper = processedTransferMapper;
+        this.dltReplayService = dltReplayService;
     }
 
     @Incoming("processed-transfers")
@@ -33,6 +39,7 @@ public class ProcessedTransferConsumer {
                 return message.ack();
             }
             eventStreamBus.publishProcessed(transfer);
+            dltReplayService.confirmProcessed(transfer.eventId());
             log.info("Published processed transfer {} to SSE stream", transfer.eventId());
             return message.ack();
         } catch (Exception e) {
