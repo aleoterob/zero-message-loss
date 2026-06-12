@@ -44,7 +44,7 @@ public class DltReplayService {
         log.warn("Registered DLT event {} for automatic replay", dto.eventId());
     }
 
-    @Scheduled(every = "3s")
+    @Scheduled(every = "3s", delayed = "10s")
     void replayPendingEvents() {
         var pendingEvents = dltReplayEventRepository.findPending();
         if (pendingEvents.isEmpty()) {

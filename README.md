@@ -204,6 +204,14 @@ FOR TABLE public.processed_transfers;
 
 ### 4. Register Debezium connectors
 
+The connector scripts read Neon credentials from an ignored local file:
+
+```bash
+cp debezium/.env.example debezium/.env
+```
+
+Fill `debezium/.env` with the producer and consumer database hosts, users, passwords, and database names before registering connectors.
+
 ```bash
 cd debezium
 bash register-producer-connector.sh
@@ -221,7 +229,9 @@ Both tasks should be `RUNNING`.
 
 ### 5. Start services
 
-`message-ops-service` connects to Neon to store durable DLT replay state. By default it reuses `NEON_URL`, `NEON_USER`, and `NEON_PASSWORD`; you can override them with `MESSAGE_OPS_NEON_URL`, `MESSAGE_OPS_NEON_USER`, and `MESSAGE_OPS_NEON_PASSWORD`.
+`message-ops-service` connects to Neon to store durable DLT replay state. In committed config it reads `MESSAGE_OPS_NEON_URL`, `MESSAGE_OPS_NEON_USER`, and `MESSAGE_OPS_NEON_PASSWORD`, falling back to `NEON_URL`, `NEON_USER`, and `NEON_PASSWORD`.
+
+For local development, keep credentials in the ignored file `message-ops-service/src/main/resources/application-local.properties`. Use `message-ops-service/application-local.properties.example` as the shape of the file and run Quarkus with the `local` profile.
 
 ```bash
 cd transfer-producer
@@ -235,7 +245,7 @@ cd transfer-consumer
 
 ```bash
 cd message-ops-service
-./mvnw quarkus:dev
+./mvnw quarkus:dev "-Dquarkus.profile=local"
 ```
 
 ```bash

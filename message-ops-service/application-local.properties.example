@@ -1,0 +1,3 @@
+quarkus.datasource.jdbc.url=jdbc:postgresql://your-neon-pooler-host/neondb?sslmode=require&channel_binding=require
+quarkus.datasource.username=your_neon_user
+quarkus.datasource.password=your_neon_password
